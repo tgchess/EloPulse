@@ -199,6 +199,15 @@ tr[data-q]:hover td,tr[data-game]:hover td,tr[data-tm]:hover td,tr[data-h2h]:hov
 .plan li{margin:7px 0}
 .chip:disabled{opacity:.45;cursor:default}
 @media(max-width:560px){.leak{gap:10px;padding:12px}.lrank{width:24px;height:24px;font-size:13px}.lelo{min-width:42px}.lelo b{font-size:17px}}
+/* opening thumbnails */
+.mini{flex:none;border-radius:6px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.08)}
+.mini svg{display:block;width:100%;height:100%;max-width:none;border-radius:0}
+.ocell{display:flex;align-items:center;gap:10px}
+@media(max-width:600px){.ocell .mono{display:none}.ocell .mini{width:54px!important;height:54px!important}}
+.ipair{display:flex;gap:12px;margin-top:8px}
+.ipair>div{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11.5px;color:var(--text-muted)}
+.dhead{display:flex;gap:16px;align-items:center;margin-bottom:8px}
+@media(max-width:560px){.dhead .mini{width:110px!important;height:110px!important}}
 section[hidden],.modal[hidden],[hidden]{display:none!important}
 </style>
 </head>
@@ -579,7 +588,7 @@ function arrowSVG(from, to, flip, color) {
   const ex = x2 - ux * 13, ey = y2 - uy * 13, hx = x2 - ux * 2, hy = y2 - uy * 2;
   return `<g opacity=".82"><line x1="${x1 + ux * 6}" y1="${y1 + uy * 6}" x2="${ex}" y2="${ey}" stroke="${color}" stroke-width="7" stroke-linecap="round"/><polygon points="${hx},${hy} ${ex - uy * 10},${ey + ux * 10} ${ex + uy * 10},${ey - ux * 10}" fill="${color}"/></g>`;
 }
-function boardSVG(pos, flip, arrows) {
+function boardSVG(pos, flip, arrows, noCoords) {
   let s = `<svg viewBox="0 0 320 320" class="board" role="img" aria-label="Satranç tahtası">`;
   for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
     const sq = r * 8 + f, x = (flip ? 7 - f : f) * 40, y = (flip ? r : 7 - r) * 40, light = (r + f) % 2 === 1;
@@ -587,14 +596,36 @@ function boardSVG(pos, flip, arrows) {
     if (sq === pos.from || sq === pos.to) s += `<rect x="${x}" y="${y}" width="40" height="40" fill="rgba(255,255,51,.42)"/>`;
     const p = pos.b[sq];
     if (p) { const white = isWp(p); s += `<text x="${x + 20}" y="${y + 31}" text-anchor="middle" font-size="33" font-family="'Segoe UI Symbol','Noto Sans Symbols 2','DejaVu Sans',serif" fill="${white ? '#fff' : '#1b1b1b'}" stroke="#1b1b1b" stroke-width="${white ? 1.3 : 0.5}" paint-order="stroke">${GLYPH[p.toLowerCase()]}&#xFE0E;</text>`; }
-    if ((flip ? f === 7 : f === 0)) s += `<text x="${x + 2.5}" y="${y + 9}" font-size="8" font-weight="600" fill="${light ? '#779556' : '#ebecd0'}">${r + 1}</text>`;
-    if ((flip ? r === 7 : r === 0)) s += `<text x="${x + 37}" y="${y + 38}" font-size="8" font-weight="600" text-anchor="end" fill="${light ? '#779556' : '#ebecd0'}">${'abcdefgh'[f]}</text>`;
+    if (!noCoords && (flip ? f === 7 : f === 0)) s += `<text x="${x + 2.5}" y="${y + 9}" font-size="8" font-weight="600" fill="${light ? '#779556' : '#ebecd0'}">${r + 1}</text>`;
+    if (!noCoords && (flip ? r === 7 : r === 0)) s += `<text x="${x + 37}" y="${y + 38}" font-size="8" font-weight="600" text-anchor="end" fill="${light ? '#779556' : '#ebecd0'}">${'abcdefgh'[f]}</text>`;
   }
   for (const a of (arrows || [])) s += arrowSVG(a.from, a.to, flip, a.color);
   return s + '</svg>';
 }
 
 // =============== helpers ===============
+// ---------- opening thumbnails: most common move line of a set of games ----------
+const LINE_CACHE = new WeakMap();
+function openingLine(list) {
+  if (!list || !list.length) return [];
+  if (LINE_CACHE.has(list)) return LINE_CACHE.get(list);
+  let best = [];
+  for (let k = 1; k <= 12; k++) {
+    const m = new Map(); let any = false;
+    for (const g of list) { if (g.mv.length < k) continue; any = true; const key = g.mv.slice(0, k).join(' '); m.set(key, (m.get(key) || 0) + 1); }
+    if (!any) break;
+    let top = null, c = 0; for (const [kk, v] of m) if (v > c) { c = v; top = kk; }
+    if (c / list.length >= 0.5) best = top.split(' '); else break;
+  }
+  if (best.length < 2) { const m = new Map(); for (const g of list) if (g.mv.length >= 2) { const key = g.mv.slice(0, 2).join(' '); m.set(key, (m.get(key) || 0) + 1); } let c = 0; for (const [kk, v] of m) if (v > c) { c = v; best = kk.split(' '); } }
+  LINE_CACHE.set(list, best); return best;
+}
+const lineText = line => line.map((m, i) => (i % 2 === 0 ? (i / 2 + 1) + '.' : '') + m).join(' ');
+function lineBoard(line, flip, size) {
+  let pos = initPos(); for (const m of line) { const p = playSAN(pos, m); if (!p) break; pos = p; }
+  return `<div class="mini" style="width:${size}px;height:${size}px" title="${esc(lineText(line))}">${boardSVG(pos, flip, null, size < 120)}</div>`;
+}
+const openThumb = (list, size) => { const line = openingLine(list); return line.length ? lineBoard(line, list[0].color === 'b', size) : ''; };
 function wdl(list) { const r = {W: 0, D: 0, L: 0, n: list.length}; for (const g of list) r[g.res]++; return r; }
 function wdlBar(r, big, base) {
   const n = r.n || 1;
@@ -630,7 +661,8 @@ function groupTable(groups, labelHdr, limit, opts = {}) {
   if (!groups.length) return '<div class="empty">Veri yok.</div>';
   return `<div class="tscroll"><table><tr><th>${labelHdr}</th><th class="n">Maç</th><th>Sonuç</th><th class="n">Skor</th></tr>${groups.slice(0, limit).map(g => {
     const title = (opts.prefix || '') + (g.label || g.k);
-    return `<tr${qa({title, list: g.list, action: opts.action && opts.action(g)})}><td${opts.mono ? ' class="mono"' : ''}>${esc(g.label || g.k)}</td><td class="n">${fmt(g.r.n)}</td><td class="bar">${wdlBar(g.r, false, {title, list: g.list})}</td><td class="n">%${scp(g.r)}</td></tr>`;
+    const nameCell = opts.thumb ? `<div class="ocell">${openThumb(g.list, opts.thumb)}<div><div>${esc(g.label || g.k)}</div><div class="mono muted" style="font-size:11.5px">${esc(lineText(openingLine(g.list)))}</div></div></div>` : esc(g.label || g.k);
+    return `<tr${qa({title, list: g.list, action: opts.action && opts.action(g), board: opts.thumb ? g.list : null})}><td${opts.mono ? ' class="mono"' : ''}>${nameCell}</td><td class="n">${fmt(g.r.n)}</td><td class="bar">${wdlBar(g.r, false, {title, list: g.list})}</td><td class="n">%${scp(g.r)}</td></tr>`;
   }).join('')}</table></div>`;
 }
 const perfRating = (list) => { const L = list.filter(g => g.opR); if (!L.length) return null; const r = wdl(L); const avg = L.reduce((a, g) => a + g.opR, 0) / L.length; const s = Math.min(0.98, Math.max(0.02, sc(r))); return Math.round(avg - 400 * Math.log10(1 / s - 1)); };
@@ -835,7 +867,8 @@ function drillEntry(o, list) {
       const r = wdl(list), rated = list.filter(g => g.opR);
       const avg = rated.length ? Math.round(rated.reduce((a, g) => a + g.opR, 0) / rated.length) : '–';
       const ops = groupBy(list, g => g.fam).slice(0, 3).map(x => `${esc(x.k)} (${x.r.n})`).join(', ');
-      return `<h2 class="mt">${esc(o.title)}</h2><div class="sub">${o.sub ? o.sub + ' · ' : ''}${periodLabel()}${F.tc !== 'all' ? ' · ' + TC[F.tc].l : ''}${ops ? ' · En sık: ' + ops : ''}</div>
+      const bl = o.board ? openingLine(o.board) : null;
+      return `${bl && bl.length ? `<div class="dhead">${lineBoard(bl, o.board[0].color === 'b', 150)}<div style="min-width:0"><h2 class="mt">${esc(o.title)}</h2><div class="mono" style="font-size:13px;color:var(--brand);margin-bottom:4px">${esc(lineText(bl))}</div><div class="sub" style="margin:0">Bu açılışta en sık oynadığın hamle dizisi</div></div></div>` : `<h2 class="mt">${esc(o.title)}</h2>`}<div class="sub">${o.sub ? o.sub + ' · ' : ''}${periodLabel()}${F.tc !== 'all' ? ' · ' + TC[F.tc].l : ''}${ops ? ' · En sık: ' + ops : ''}</div>
         <div class="kpis" style="margin:10px 0">${kpiBox('Maç', fmt(r.n), '', '', 1)}${kpiBox('Skor', '%' + scp(r), `%${pct(r.W, r.n)} galibiyet`, '', 1)}${kpiBox('G-B-M', `${r.W}-${r.D}-${r.L}`, '', '', 1)}${kpiBox('Ort. rakip', avg, perfRating(list) ? 'Performans ' + perfRating(list) : '', '', 1)}</div>
         ${wdlBar(r, true)}
         ${o.action ? `<div style="margin-top:12px"><button class="btn" id="dact">${o.action.label}</button></div>` : ''}
@@ -924,7 +957,7 @@ function h2hEntry(name) {
       return `<h2 class="mt">${meName()} <span class="muted">vs</span> ${esc(name)}</h2>
       <div class="sub">${fmt(r.n)} maç · ${dstr(L[0].t)} – ${dstr(L[L.length - 1].t)} · ${userLink(name)} · <button class="linkbtn" data-analyze="${esc(name)}">Bu oyuncuyu analiz et →</button> · <button class="linkbtn" data-cmp="${esc(name)}">Karşılaştır →</button></div>
       <div class="kpis" style="margin:12px 0">${kpiBox('Skor', `${r.W}-${r.D}-${r.L}`, '%' + scp(r), '', 1)}${kpiBox('Beyazla', '%' + scp(wdl(W)), W.length + ' maç', W.length ? qa({title: `${name} karşısında beyazla`, list: W}) : '', 1)}${kpiBox('Siyahla', '%' + scp(wdl(B)), B.length + ' maç', B.length ? qa({title: `${name} karşısında siyahla`, list: B}) : '', 1)}${kpiBox('Son maç', dstr(L[L.length - 1].t).replace(/ \d{4}$/, ''), RES_TR[L[L.length - 1].res], ga(L[L.length - 1]), 1)}</div>${wdlBar(r, true, {title: name + ' karşısında', list: L})}
-      <div class="two" style="margin-top:6px"><div><div class="lbl">Tempoya göre</div>${groupTable(groupBy(L, g => tcLabel(g.tc)), 'Tempo', 4, {prefix: name + ' · '})}</div><div><div class="lbl">Açılışlar</div>${groupTable(groupBy(L, g => g.fam), 'Açılış', 5, {prefix: name + ' · '})}</div></div>
+      <div class="two" style="margin-top:6px"><div><div class="lbl">Tempoya göre</div>${groupTable(groupBy(L, g => tcLabel(g.tc)), 'Tempo', 4, {prefix: name + ' · '})}</div><div><div class="lbl">Açılışlar</div>${groupTable(groupBy(L, g => g.fam), 'Açılış', 5, {prefix: name + ' · ', thumb: 44})}</div></div>
       <div class="lbl">Tüm oyunlar · tıklayınca oyun açılır</div>${gameTable(L.slice().reverse().slice(0, 200))}`;
     }
   };
@@ -1078,7 +1111,7 @@ function buildInsights(G) {
     const gr = groupBy(G.filter(g => g.color === col), g => g.fam).filter(x => x.r.n >= minN && x.k !== 'Bilinmiyor');
     if (gr.length >= 2) {
       const best = gr.slice().sort((a, b) => sc(b.r) - sc(a.r))[0], worst = gr.slice().sort((a, b) => sc(a.r) - sc(b.r))[0];
-      out.push([col === 'w' ? '📗' : '📘', `${col === 'w' ? 'Beyazla' : 'Siyahla'} en başarılı açılış <b>${esc(best.k)}</b> (%${scp(best.r)}, ${best.r.n} maç); en zayıf <b>${esc(worst.k)}</b> (%${scp(worst.r)}, ${worst.r.n} maç).`, qa({title: `${col === 'w' ? 'Beyazla' : 'Siyahla'} en zayıf açılış: ${worst.k}`, list: worst.list})]);
+      out.push([col === 'w' ? '📗' : '📘', `${col === 'w' ? 'Beyazla' : 'Siyahla'} en başarılı açılış <b>${esc(best.k)}</b> (%${scp(best.r)}, ${best.r.n} maç); en zayıf <b>${esc(worst.k)}</b> (%${scp(worst.r)}, ${worst.r.n} maç).<div class="ipair"><div>${openThumb(best.list, 84)}<span>En iyi</span></div><div>${openThumb(worst.list, 84)}<span>En zayıf</span></div></div>`, qa({title: `${col === 'w' ? 'Beyazla' : 'Siyahla'} en zayıf açılış: ${worst.k}`, list: worst.list})]);
     }
   }
   const T = tiltStats(G);
@@ -1088,7 +1121,7 @@ function buildInsights(G) {
     else out.push(['🧊', `Tilt belirtisi yok: kayıptan sonra skor (%${scp(T.afterL.r)}) galibiyetten sonrakine (%${scp(T.afterW.r)}) çok yakın.`, qa({title: 'Mağlubiyetten sonraki oyunlar', list: T.afterL.list})]);
   }
   const TS = timeStats(G);
-  if (TS && TS.n >= 30) out.push(['⏱', `Oyunların %${pct(TS.trouble.length, TS.n)}'inde zaman sıkıntısına düşülmüş; bu oyunlarda skor %${Math.round(TS.troubleScore * 100)}, diğerlerinde %${Math.round(TS.calmScore * 100)}.`, qa({title: 'Zaman sıkıntısına düşülen oyunlar', list: TS.trouble})]);
+  if (TS && TS.n >= 30 && TS.trouble.length >= 5) out.push(['⏱', `Oyunların %${pct(TS.trouble.length, TS.n)}'inde zaman sıkıntısına düşülmüş; bu oyunlarda skor %${Math.round(TS.troubleScore * 100)}, diğerlerinde %${Math.round(TS.calmScore * 100)}.`, qa({title: 'Zaman sıkıntısına düşülen oyunlar', list: TS.trouble})]);
   const rivals = rivalMap(G).filter(o => o.n >= 5);
   const nem = rivals.slice().sort((a, b) => (a.W + a.D / 2) / a.n - (b.W + b.D / 2) / b.n || b.n - a.n)[0];
   if (nem && (nem.W + nem.D / 2) / nem.n < 0.4) out.push(['😈', `Kabus rakip: <b>${esc(nem.name)}</b>, ${nem.n} maçta ${nem.W}-${nem.D}-${nem.L}.`, ` data-h2h="${esc(nem.name)}"`]);
@@ -1203,12 +1236,12 @@ const treeAction = g => ({label: '♟ Açılış ağacında göster', run: () =>
 function renderOpenings(G) {
   const L = G.filter(g => g.color === UI.openColor);
   $('#openCard').innerHTML = head('En çok oynanan açılışlar', `${UI.openColor === 'w' ? 'Beyaz' : 'Siyah'} taşlarla · ${fmt(L.length)} oyun · tıklayınca oyunlar açılır`, colorChips()) +
-    groupTable(groupBy(L, g => g.fam), 'Açılış', 12, {action: treeAction});
+    groupTable(groupBy(L, g => g.fam), 'Açılış', 12, {action: treeAction, thumb: 64});
 }
 function renderVariations(G) {
   const L = G.filter(g => g.color === UI.openColor);
   $('#varCard').innerHTML = head('En çok oynanan varyasyonlar', `${UI.openColor === 'w' ? 'Beyaz' : 'Siyah'} taşlarla · tıklayınca oyunlar açılır`, colorChips()) +
-    groupTable(groupBy(L, g => g.open), 'Varyasyon', 12, {action: treeAction});
+    groupTable(groupBy(L, g => g.open), 'Varyasyon', 12, {action: treeAction, thumb: 64});
 }
 function renderFirst(G) {
   const W = G.filter(g => g.color === 'w' && g.mv[0]);
@@ -1624,7 +1657,7 @@ function devStrengths(G) {
   for (const col of ['w', 'b']) {
     const CG = G.filter(g => g.color === col), cb = sc(wdl(CG));
     const best = groupBy(CG, g => g.fam).filter(x => x.k !== 'Bilinmiyor' && x.r.n >= minN).sort((a, b) => sc(b.r) - sc(a.r))[0];
-    if (best && sc(best.r) >= cb + 0.04) out.push({ic: col === 'w' ? '📗' : '📘', t: `${col === 'w' ? 'Beyazla' : 'Siyahla'} ${best.k}`, d: `${best.r.n} maçta %${scp(best.r)} skor. Bu açılışa güvenebilirsin.`, list: best.list});
+    if (best && sc(best.r) >= cb + 0.04) out.push({ic: col === 'w' ? '📗' : '📘', t: `${col === 'w' ? 'Beyazla' : 'Siyahla'} ${best.k}`, d: `${best.r.n} maçta %${scp(best.r)} skor. Bu açılışa güvenebilirsin.`, list: best.list, open: true});
   }
   const up = G.filter(g => g.rated && g.opR && g.myR && g.opR >= g.myR + 100);
   if (up.length >= minN) { const exp = up.reduce((a, g) => a + 1 / (1 + Math.pow(10, (g.opR - g.myR) / 400)), 0) / up.length, act = sc(wdl(up)); if (act >= exp + 0.03) out.push({ic: '🐉', t: 'Güçlü rakiplere karşı direnç', d: `Kendinden 100+ puan yüksek rakiplere karşı skorun %${Math.round(act * 100)}; beklenen %${Math.round(exp * 100)}.`, list: up}); }
@@ -1648,11 +1681,11 @@ function renderDev(G) {
       ${kpiBox('Motorla analiz edilen', fmt(engG.length) + ' oyun', engG.length ? 'Sonuçlar aşağıda' : 'Aşağıdan derin analizi başlat', ' data-scrollto="engCard"')}
     </div>`;
   $('#devLeaks').innerHTML = head('🩺 Puan kaybettiren zayıf noktalar', 'Her madde, o sorun olmasaydı kazanacağın tahmini puanla sıralandı. Kanıt oyunlarını görmek için karta tıkla.') +
-    (leaks.length ? leaks.map((l, i) => `<div class="leak"${qa({title: l.t, list: l.list, sub: l.cat, action: l.tree ? {label: '♟ Açılış ağacında göster', run: () => openInTree(l.tree)} : null})}>
-      <div class="lrank">${i + 1}</div>
+    (leaks.length ? leaks.map((l, i) => `<div class="leak"${qa({title: l.t, list: l.list, sub: l.cat, board: l.tree || null, action: l.tree ? {label: '♟ Açılış ağacında göster', run: () => openInTree(l.tree)} : null})}>
+      <div class="lrank">${i + 1}</div>${l.tree ? `<div style="flex:none">${openThumb(l.tree, 96)}<div class="mono muted" style="font-size:11px;max-width:96px;margin-top:4px">${esc(lineText(openingLine(l.tree)))}</div></div>` : ''}
       <div style="min-width:0;flex:1"><div class="lt">${l.ic} ${esc(l.t)} <span class="ltag">${l.cat}</span></div><div class="ld">${l.ev}</div><div class="la"><b>Öneri:</b> ${l.adv}</div></div>
       <div class="lelo"><b>+${l.elo}</b><span>Elo</span></div></div>`).join('') : '<div class="empty">Bu filtrede belirgin bir zayıf nokta bulunamadı. Daha fazla oyun seç ya da motor analizini çalıştır.</div>');
-  $('#devStrengths').innerHTML = head('💪 Güçlü yönlerin', 'Bunları korumaya devam et') + (strengths.length ? `<ul class="insights" style="grid-template-columns:1fr">${strengths.map(s => `<li${qa({title: s.t, list: s.list})}><span class="ic">${s.ic}</span><span><b>${esc(s.t)}</b><br>${s.d}</span></li>`).join('')}</ul>` : '<div class="empty">Daha fazla veriyle belirginleşecek.</div>');
+  $('#devStrengths').innerHTML = head('💪 Güçlü yönlerin', 'Bunları korumaya devam et') + (strengths.length ? `<ul class="insights" style="grid-template-columns:1fr">${strengths.map(s => `<li${qa({title: s.t, list: s.list, board: s.open ? s.list : null})}>${s.open ? openThumb(s.list, 72) : `<span class="ic">${s.ic}</span>`}<span><b>${esc(s.t)}</b><br>${s.d}${s.open ? `<br><span class="mono" style="font-size:12px;color:var(--brand)">${esc(lineText(openingLine(s.list)))}</span>` : ''}</span></li>`).join('')}</ul>` : '<div class="empty">Daha fazla veriyle belirginleşecek.</div>');
   const plan = leaks.slice(0, 4).map(l => l.plan);
   const ES = engG.length ? engineStats(engG) : null;
   if (ES && ES.my.length) {
