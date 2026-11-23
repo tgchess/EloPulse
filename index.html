@@ -50,9 +50,12 @@ button{font:inherit;cursor:pointer;color:inherit}
 .hero h1{color:var(--text-primary);font-size:34px;letter-spacing:-.03em;margin:0 0 10px;line-height:1.15}
 .hero h1 span{color:var(--brand)}
 .hero .ex{margin-top:18px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
-.feat{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:30px;text-align:left}
-.feat div{background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:13px 15px;font-size:13.5px}
-.feat b{display:block;color:var(--text-primary);margin-bottom:2px}
+.feat{display:grid;grid-template-columns:repeat(3,1fr);gap:22px 32px;margin:44px auto 0;max-width:820px;text-align:left}
+@media(max-width:640px){.feat{grid-template-columns:1fr;gap:16px}}
+.feat div{border-left:2px solid var(--brand-2);padding:2px 0 2px 14px;font-size:13.5px;color:var(--text-muted)}
+.feat b{display:block;color:var(--text-primary);font-weight:600;font-size:14.5px;margin-bottom:2px}
+.flag{height:15px;width:auto;border-radius:2px;vertical-align:0;margin-left:4px;box-shadow:0 0 0 1px rgba(255,255,255,.12)}
+.profile .name .flag{height:18px;vertical-align:-1px;margin-left:6px}
 .chip{background:var(--surface-1);border:1px solid var(--border);color:var(--text-secondary);border-radius:999px;padding:6px 13px;font-size:13.5px;font-weight:500;white-space:nowrap}
 .chip:hover{color:var(--text-primary)}
 .chip.on{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
@@ -207,12 +210,12 @@ section[hidden],.modal[hidden],[hidden]{display:none!important}
       <button class="chip" data-ex="gothamchess">gothamchess</button>
     </div>
     <div class="feat">
-      <div><b>♟ Açılış ağacı ve oyun izleyici</b>Repertuvarını tahtada hamle hamle gez, istediğin oyunu baştan sona oynat</div>
-      <div><b>👆 Her şey tıklanabilir</b>Her sayı, çubuk ve satır, arkasındaki oyunların listesini açar</div>
-      <div><b>⏱ Zaman yönetimi</b>Hangi evrede ne kadar düşünüyorsun, zaman sıkıntısına ne sıklıkla giriyorsun</div>
-      <div><b>🧠 Tilt analizi</b>Kayıptan sonra performansın düşüyor mu, seansın kaçıncı oyununda en iyisin</div>
-      <div><b>⚔️ Karşılaştır</b>İki oyuncuyu yan yana koy, aralarındaki ikili skoru gör</div>
-      <div><b>🏅 Rozetler ve özet kartı</b>Başarımlarını topla, yıllık karneni görsel olarak paylaş</div>
+      <div><b>Açılış ağacı</b>Repertuvarını tahtada hamle hamle gez</div>
+      <div><b>Oyun izleyici</b>İstediğin oyunu baştan sona oynat</div>
+      <div><b>Zaman yönetimi</b>Saatini nasıl kullandığını gör</div>
+      <div><b>Tilt analizi</b>Kayıptan sonra nasıl oynadığını ölç</div>
+      <div><b>Karşılaştır</b>İki oyuncuyu yan yana koy</div>
+      <div><b>Rozetler ve özet kartı</b>Karneni görsel olarak paylaş</div>
     </div>
   </div>
 
@@ -556,7 +559,7 @@ const tcLabel = tc => TC[tc] ? TC[tc].l : tc;
 const userLink = u => `<a href="https://www.chess.com/member/${encodeURIComponent(u)}" target="_blank" rel="noopener">${esc(u)}</a>`;
 const rivalBtn = u => `<button class="linkbtn" data-h2h="${esc(u)}">${esc(u)}</button>`;
 const gameLink = (g, txt) => `<a href="${esc(g.url)}" target="_blank" rel="noopener" title="Chess.com'da aç">${txt || '↗'}</a>`;
-const flag = cc => cc && /^[A-Z]{2}$/.test(cc) ? String.fromCodePoint(...[...cc].map(c => 127397 + c.charCodeAt(0))) : '';
+const flag = cc => cc && /^[A-Z]{2}$/.test(cc) && !/^X/.test(cc) ? `<img class="flag" src="https://flagcdn.com/w40/${cc.toLowerCase()}.png" srcset="https://flagcdn.com/w80/${cc.toLowerCase()}.png 2x" alt="${cc}" title="${cc}" onerror="this.replaceWith(document.createTextNode(' ${cc}'))">` : '';
 const meName = () => esc(PROFILE && PROFILE.username || ME);
 function head(title, sub, chips) { return `<div class="head"><div><h2>${title}</h2>${sub ? `<div class="sub">${sub}</div>` : ''}</div>${chips || ''}</div>`; }
 function countBy(list, fn) { const m = new Map(); for (const x of list) { const k = fn(x); if (!m.has(k)) m.set(k, []); m.get(k).push(x); } return [...m].map(([k, l]) => ({k, v: l.length, list: l})).sort((a, b) => b.v - a.v); }
@@ -1473,7 +1476,13 @@ function drawWrapped(G, logo) {
 
 // =============== wiring ===============
 $('#f').addEventListener('submit', e => { e.preventDefault(); load($('#nick').value); });
-$('#home').addEventListener('click', () => { if (ALL.length) { scrollTo({top: 0, behavior: 'smooth'}); gotoTab('genel'); } });
+$('#home').addEventListener('click', goHome);
+function goHome() {
+  if (loading) return;
+  closeModal(); $('#app').hidden = true; $('#hero').hidden = false; $('#nick').value = ''; setStatus(''); setProg(null);
+  try { history.replaceState(null, '', location.pathname); } catch (e) {}
+  scrollTo({top: 0});
+}
 let rz, lastW = innerWidth; addEventListener('resize', () => { if (innerWidth === lastW) return; lastW = innerWidth; clearTimeout(rz); rz = setTimeout(() => { if (LAST.length) renderAll(); }, 150); });
 try { const u = new URLSearchParams(location.search).get('u'); if (u) load(u); } catch (e) {}
 
