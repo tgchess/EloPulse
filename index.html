@@ -203,6 +203,7 @@ tr[data-q]:hover td,tr[data-game]:hover td,tr[data-tm]:hover td,tr[data-h2h]:hov
 .mini{flex:none;border-radius:6px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.08)}
 .mini svg{display:block;width:100%;height:100%;max-width:none;border-radius:0}
 .ocell{display:flex;align-items:center;gap:10px}
+.treeban{background:rgba(44,248,153,.08);border:1px solid rgba(44,248,153,.3);border-radius:9px;padding:7px 11px;font-size:13px;margin:2px 0 6px}
 @media(max-width:600px){.ocell .mono{display:none}.ocell .mini{width:54px!important;height:54px!important}}
 .ipair{display:flex;gap:12px;margin-top:8px}
 .ipair>div{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11.5px;color:var(--text-muted)}
@@ -936,7 +937,7 @@ function gameEntry(g, opts = {}) {
         if (v === 'play') { if (PLAY) { clearInterval(PLAY); PLAY = null; return; } if (i >= pos.length - 1) go(0); PLAY = setInterval(() => { if (i >= pos.length - 1) { clearInterval(PLAY); PLAY = null; } else go(i + 1); }, 700); }
       };
       box.querySelector('#vmoves').onclick = e => { const b = e.target.closest('[data-ply]'); if (b) { clearInterval(PLAY); PLAY = null; go(Math.min(+b.dataset.ply, pos.length - 1)); } };
-      box.querySelector('#vtree').onclick = () => { closeModal(); UI.treeColor = g.color; UI.path = g.mv.slice(0, Math.min(10, g.mv.length)); gotoTab('acilis'); setTimeout(() => $('#treeCard').scrollIntoView({behavior: 'smooth'}), 50); };
+      box.querySelector('#vtree').onclick = () => showInTree(g.color, g.mv.slice(0, Math.max(2, Math.min(i || 10, 16))), `${g.opp} ile oyun · ${i ? Math.ceil(i / 2) + '. hamleye kadar' : ''}`);
       upd();
     }
   };
@@ -989,8 +990,8 @@ document.addEventListener('click', e => {
   if ((el = t.closest('[data-settc]'))) { F.tc = F.tc === el.dataset.settc ? 'all' : el.dataset.settc; UI.path = []; renderProfile(); renderFilters(); return renderAll(); }
   if ((el = t.closest('[data-game]'))) { const g = GBY.get(el.dataset.game); if (g) pushModal(gameEntry(g)); return; }
   if ((el = t.closest('[data-tm]'))) { UI.path = [...UI.path, el.dataset.tm]; return renderTree(LAST); }
-  if ((el = t.closest('[data-tp]'))) { UI.path = UI.path.slice(0, +el.dataset.tp); return renderTree(LAST); }
-  if ((el = t.closest('[data-tc2]'))) { UI.treeColor = el.dataset.tc2; UI.path = []; return renderTree(LAST); }
+  if ((el = t.closest('[data-tp]'))) { UI.path = UI.path.slice(0, +el.dataset.tp); if (!UI.path.length) UI.treeLabel = null; return renderTree(LAST); }
+  if ((el = t.closest('[data-tc2]'))) { UI.treeColor = el.dataset.tc2; UI.path = []; UI.treeLabel = null; return renderTree(LAST); }
   if ((el = t.closest('[data-oc]'))) { UI.openColor = el.dataset.oc; renderOpenings(LAST); return renderVariations(LAST); }
   if ((el = t.closest('[data-rs]'))) { UI.rivalSort = el.dataset.rs; return renderRivals(LAST); }
   if (t.id === 'moreRecent') { UI.recentN += 30; return renderRecent(LAST); }
@@ -1214,25 +1215,37 @@ function renderTree(G) {
   const myTurn = (k % 2 === 0) === (col === 'w');
   const num = Math.floor(k / 2) + 1, prefix = k % 2 === 0 ? `${num}.` : `${num}…`;
   const famTop = countBy(node.filter(g => g.ply > k + 2), g => g.open)[0];
+  const banner = UI.treeLabel && k ? `<div class="treeban">📍 <b>${esc(UI.treeLabel)}</b> pozisyonu gösteriliyor <button class="linkbtn" data-tp="0" style="margin-left:6px">Başlangıca dön</button></div>` : '';
   const crumbs = `<div class="crumbs"><button data-tp="0" class="${k === 0 ? 'cur' : ''}">Başlangıç</button>${path.map((m, i) => `<button data-tp="${i + 1}" class="${i + 1 === k ? 'cur' : ''}">${i % 2 === 0 ? (i / 2 + 1) + '.' : ''}${esc(m)}</button>`).join('')}${k ? `<button data-tp="${k - 1}">← Geri</button>` : ''}</div>`;
   const chips = `<div class="chips"><button class="chip${col === 'w' ? ' on' : ''}" data-tc2="w">♔ Beyazla</button><button class="chip${col === 'b' ? ' on' : ''}" data-tc2="b">♚ Siyahla</button></div>`;
   const rows = children.slice(0, 12).map(c => `<tr data-tm="${esc(c.k)}"><td class="mono"><b>${prefix} ${esc(c.k)}</b></td><td class="n">${fmt(c.r.n)}</td><td class="n muted">%${pct(c.r.n, node.length)}</td><td class="bar">${wdlBar(c.r, false, {title: `${path.length ? path.join(' ') + ' ' : ''}${c.k}`, list: c.list})}</td><td class="n">%${scp(c.r)}</td></tr>`).join('');
   const pathTxt = path.map((m, i) => (i % 2 === 0 ? (i / 2 + 1) + '.' : '') + m).join(' ') || 'Başlangıç pozisyonu';
   $('#treeCard').innerHTML = head('♟ Açılış ağacı', 'Kendi oyunlarından oluşan repertuvar: bir hamleye tıklayarak derinleş. Skor = o hamleden sonra senin skorun. Renkli çubuklara tıklayınca oyunlar açılır.', chips) +
-    `<div class="tree"><div>${pos ? boardSVG(pos, col === 'b') : '<div class="empty">Pozisyon çizilemedi.</div>'}</div><div style="min-width:0">${crumbs}
+    `<div class="tree"><div>${pos ? boardSVG(pos, col === 'b') : '<div class="empty">Pozisyon çizilemedi.</div>'}</div><div style="min-width:0">${banner}${crumbs}
       <div style="font-size:13.5px;margin-bottom:8px">Bu pozisyona <b>${fmt(node.length)}</b> oyunda ulaşıldı · skor <b>%${scp(wdl(node))}</b>${famTop ? `<br><span class="muted">En sık devam: ${esc(famTop.k)}</span>` : ''}</div>
       ${node.length ? `<button class="btn2"${qa({title: pathTxt, list: node})} style="margin-bottom:6px">📋 Bu pozisyondaki ${fmt(node.length)} oyunu listele</button>` : ''}
       ${children.length ? `<div class="lbl" style="margin-top:4px">${myTurn ? '🫵 Senin seçimlerin' : '👤 Rakiplerin hamleleri'}</div><div class="tscroll"><table><tr><th>Hamle</th><th class="n">Maç</th><th class="n">Pay</th><th>Sonuç</th><th class="n">Skor</th></tr>${rows}</table></div>` : '<div class="empty">Bu pozisyondan sonra veri yok (ağaç ilk 10 hamleyi kapsar).</div>'}
     </div></div>`;
 }
-function openInTree(list) {
-  let pre = list[0].mv.slice(0, 20);
-  for (const x of list) { let i = 0; while (i < pre.length && x.mv[i] === pre[i]) i++; pre = pre.slice(0, i); }
-  UI.treeColor = list[0].color; UI.path = pre.slice(0, 14); gotoTab('acilis');
-  setTimeout(() => $('#treeCard').scrollIntoView({behavior: 'smooth', block: 'start'}), 50);
+function scrollToCard(id) {
+  const el = $('#' + id); if (!el) return;
+  const top = el.getBoundingClientRect().top + scrollY - ($('#tabs').offsetHeight || 0) - 10;
+  scrollTo({top: Math.max(0, top), behavior: 'smooth'});
+}
+function showInTree(color, path, label) {
+  closeModal();
+  UI.treeColor = color; UI.path = path.slice(0, 16); UI.treeLabel = label || null;
+  gotoTab('acilis');
+  requestAnimationFrame(() => setTimeout(() => scrollToCard('treeCard'), 30));
+}
+function openInTree(list, label) {
+  if (!list || !list.length) return;
+  // the line most of these games actually follow (same line the thumbnail shows)
+  const line = openingLine(list);
+  showInTree(list[0].color, line, label || (list[0].fam !== 'Bilinmiyor' ? list[0].fam : null));
 }
 const colorChips = () => `<div class="chips"><button class="chip${UI.openColor === 'w' ? ' on' : ''}" data-oc="w">♔ Beyazla</button><button class="chip${UI.openColor === 'b' ? ' on' : ''}" data-oc="b">♚ Siyahla</button></div>`;
-const treeAction = g => ({label: '♟ Açılış ağacında göster', run: () => openInTree(g.list)});
+const treeAction = g => ({label: '♟ Açılış ağacında göster', run: () => openInTree(g.list, g.label || g.k)});
 function renderOpenings(G) {
   const L = G.filter(g => g.color === UI.openColor);
   $('#openCard').innerHTML = head('En çok oynanan açılışlar', `${UI.openColor === 'w' ? 'Beyaz' : 'Siyah'} taşlarla · ${fmt(L.length)} oyun · tıklayınca oyunlar açılır`, colorChips()) +
@@ -1681,7 +1694,7 @@ function renderDev(G) {
       ${kpiBox('Motorla analiz edilen', fmt(engG.length) + ' oyun', engG.length ? 'Sonuçlar aşağıda' : 'Aşağıdan derin analizi başlat', ' data-scrollto="engCard"')}
     </div>`;
   $('#devLeaks').innerHTML = head('🩺 Puan kaybettiren zayıf noktalar', 'Her madde, o sorun olmasaydı kazanacağın tahmini puanla sıralandı. Kanıt oyunlarını görmek için karta tıkla.') +
-    (leaks.length ? leaks.map((l, i) => `<div class="leak"${qa({title: l.t, list: l.list, sub: l.cat, board: l.tree || null, action: l.tree ? {label: '♟ Açılış ağacında göster', run: () => openInTree(l.tree)} : null})}>
+    (leaks.length ? leaks.map((l, i) => `<div class="leak"${qa({title: l.t, list: l.list, sub: l.cat, board: l.tree || null, action: l.tree ? {label: '♟ Açılış ağacında göster', run: () => openInTree(l.tree, l.t)} : null})}>
       <div class="lrank">${i + 1}</div>${l.tree ? `<div style="flex:none">${openThumb(l.tree, 96)}<div class="mono muted" style="font-size:11px;max-width:96px;margin-top:4px">${esc(lineText(openingLine(l.tree)))}</div></div>` : ''}
       <div style="min-width:0;flex:1"><div class="lt">${l.ic} ${esc(l.t)} <span class="ltag">${l.cat}</span></div><div class="ld">${l.ev}</div><div class="la"><b>Öneri:</b> ${l.adv}</div></div>
       <div class="lelo"><b>+${l.elo}</b><span>Elo</span></div></div>`).join('') : '<div class="empty">Bu filtrede belirgin bir zayıf nokta bulunamadı. Daha fazla oyun seç ya da motor analizini çalıştır.</div>');
