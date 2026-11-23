@@ -203,6 +203,9 @@ tr[data-q]:hover td,tr[data-game]:hover td,tr[data-tm]:hover td,tr[data-h2h]:hov
 .mini{flex:none;border-radius:6px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.08)}
 .mini svg{display:block;width:100%;height:100%;max-width:none;border-radius:0}
 .ocell{display:flex;align-items:center;gap:10px}
+.drange{display:inline-flex;align-items:center;gap:6px}
+.drange input{background:var(--surface-1);color:var(--text-primary);border:1px solid var(--border);border-radius:999px;padding:5px 10px;font:inherit;font-size:13px;color-scheme:dark}
+.drange input:focus{outline:none;border-color:var(--brand-2)}
 .treeban{background:rgba(44,248,153,.08);border:1px solid rgba(44,248,153,.3);border-radius:9px;padding:7px 11px;font-size:13px;margin:2px 0 6px}
 @media(max-width:600px){.ocell .mono{display:none}.ocell .mini{width:54px!important;height:54px!important}}
 .ipair{display:flex;gap:12px;margin-top:8px}
@@ -347,7 +350,7 @@ const PIECE_TR = {Q:'Vezir', R:'Kale', B:'Fil', N:'At', P:'Piyon', K:'Şah'};
 const OPEN_KEYS = new Set(['Opening','Defense','Defence','Game','Gambit','Attack','System','Countergambit']);
 
 let ALL = [], ME = '', PROFILE = null, STATS = null, LAST = [], GBY = new Map();
-const F = {tc:'all', rated:false, period:'all'};
+const F = {tc:'all', rated:false, period:'all', from:'', to:''};
 const UI = {tab:'genel', openColor:'w', rivalSort:'g', treeColor:'w', path:[], recentN:20};
 let CMP = null;
 
@@ -426,7 +429,7 @@ async function load(nick, fresh) {
   if (other) parts.push(`${fmt(other)} varyant oyunu (Chess960 vb.) hariç tutuldu.`);
   if (fromCache) parts.push(`<button class="linkbtn" id="refetch">Tümünü yeniden indir</button>`);
   setStatus(parts.join(' '));
-  Object.assign(F, {tc: 'all', rated: false, period: 'all'}); UI.path = []; UI.recentN = 20; CMP = null;
+  Object.assign(F, {tc: 'all', rated: false, period: 'all', from: '', to: ''}); UI.path = []; UI.recentN = 20; CMP = null;
   showApp();
 }
 function setAll(games) { ALL = games.filter(g => g.rules === 'chess').sort((a, b) => a.t - b.t); GBY = new Map(ALL.map(g => [g.url, g])); }
@@ -634,15 +637,26 @@ function wdlBar(r, big, base) {
   return `<div class="wdl${big ? ' big' : ''}">${seg('W', 'w')}${seg('D', 'd')}${seg('L', 'l')}</div>`;
 }
 const WDL_LEGEND = `<div class="legend"><span><i class="dot" style="background:var(--win)"></i>Galibiyet</span><span><i class="dot" style="background:var(--draw)"></i>Beraberlik</span><span><i class="dot" style="background:var(--loss)"></i>Mağlubiyet</span><span class="muted">· çubuklara tıklayınca oyunlar açılır</span></div>`;
-function periodLabel() { const p = F.period; return p === 'all' ? 'Tüm zamanlar' : p === 'd30' ? 'Son 30 gün' : p === 'd90' ? 'Son 90 gün' : p === 'd365' ? 'Son 12 ay' : p; }
+const PERIODS = [['all', 'Tüm zamanlar'], ['today', 'Bugün'], ['d1', 'Son 24 saat'], ['d7', 'Son 7 gün'], ['d30', 'Son 30 gün'], ['d90', 'Son 90 gün'], ['d365', 'Son 12 ay'], ['n20', 'Son 20 maç'], ['n50', 'Son 50 maç'], ['n100', 'Son 100 maç'], ['custom', '📅 Tarih aralığı']];
+const dateFromInput = (v, end) => { if (!v) return null; const [y, m, d] = v.split('-').map(Number); return end ? new Date(y, m - 1, d, 23, 59, 59, 999).getTime() : new Date(y, m - 1, d).getTime(); };
+const fmtInput = v => { if (!v) return '…'; const [y, m, d] = v.split('-').map(Number); return `${d} ${MONTHS[m - 1]} ${y}`; };
+function periodLabel() {
+  const p = F.period;
+  if (p === 'custom') return `${fmtInput(F.from)} – ${fmtInput(F.to)}`;
+  const o = PERIODS.find(x => x[0] === p); return o ? o[1] : p;
+}
 function inPeriod(t) {
-  const p = F.period; if (p === 'all') return true;
-  if (p === 'd30') return t >= Date.now() - 30 * 864e5;
-  if (p === 'd90') return t >= Date.now() - 90 * 864e5;
-  if (p === 'd365') return t >= Date.now() - 365 * 864e5;
+  const p = F.period; if (p === 'all' || p[0] === 'n') return true;
+  if (p === 'today') { const d = new Date(); d.setHours(0, 0, 0, 0); return t >= d.getTime(); }
+  if (p === 'custom') { const a = dateFromInput(F.from), b = dateFromInput(F.to, true); return (a == null || t >= a) && (b == null || t <= b); }
+  const days = {d1: 1, d7: 7, d30: 30, d90: 90, d365: 365}[p];
+  if (days) return t >= Date.now() - days * 864e5;
   return new Date(t).getFullYear() == p;
 }
-function filtered() { return ALL.filter(g => (F.tc === 'all' || g.tc === F.tc) && (!F.rated || g.rated) && inPeriod(g.t)); }
+function filtered() {
+  const L = ALL.filter(g => (F.tc === 'all' || g.tc === F.tc) && (!F.rated || g.rated) && inPeriod(g.t));
+  return F.period[0] === 'n' ? L.slice(-+F.period.slice(1)) : L;
+}
 const dstr = t => { const d = new Date(t); return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`; };
 const dayKey = t => { const d = new Date(t); return d.getFullYear() * 1e4 + d.getMonth() * 100 + d.getDate(); };
 const tcLabel = tc => TC[tc] ? TC[tc].l : tc;
@@ -808,6 +822,7 @@ function calendar(el, G) {
   const end = new Date(); end.setHours(0, 0, 0, 0);
   let endT = end.getTime();
   if (/^\d{4}$/.test(F.period)) endT = Math.min(endT, new Date(+F.period, 11, 31).getTime());
+  else if (F.period === 'custom' && F.to) endT = Math.min(endT, dateFromInput(F.to));
   else if (G.length && G[G.length - 1].t < endT - 365 * 864e5) { const d = new Date(G[G.length - 1].t); d.setHours(0, 0, 0, 0); endT = d.getTime(); }
   const endD = new Date(endT);
   const start = new Date(endD); start.setDate(start.getDate() - 364); start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
@@ -1028,11 +1043,14 @@ function renderProfile() {
 function renderFilters() {
   const tcs = ['all', ...['bullet', 'blitz', 'rapid', 'daily'].filter(k => ALL.some(g => g.tc === k))];
   const years = [...new Set(ALL.map(g => new Date(g.t).getFullYear()))].sort((a, b) => b - a);
-  const per = [['all', 'Tüm zamanlar'], ['d30', 'Son 30 gün'], ['d90', 'Son 90 gün'], ['d365', 'Son 12 ay'], ...years.map(y => [String(y), String(y)])];
+  const per = [...PERIODS.slice(0, -1), ...years.map(y => [String(y), String(y)]), PERIODS[PERIODS.length - 1]];
+  const iso = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const minD = ALL.length ? iso(ALL[0].t) : '', maxD = iso(Date.now());
   $('#filters').innerHTML =
     tcs.map(k => `<button class="chip${F.tc === k ? ' on' : ''}" data-ftc="${k}">${k === 'all' ? 'Tümü' : TC[k].l}</button>`).join('') +
     `<span class="sep"></span><button class="chip${F.rated ? ' on' : ''}" data-rated>Sadece puanlı</button>` +
     `<select id="perSel" aria-label="Dönem">${per.map(([v, l]) => `<option value="${v}"${F.period === v ? ' selected' : ''}>${l}</option>`).join('')}</select>` +
+    (F.period === 'custom' ? `<span class="drange"><input type="date" id="dFrom" value="${F.from}" min="${minD}" max="${maxD}" aria-label="Başlangıç tarihi"><span class="muted">–</span><input type="date" id="dTo" value="${F.to}" min="${minD}" max="${maxD}" aria-label="Bitiş tarihi"></span>` : '') +
     `<span class="grow"></span><button class="btn2" id="wrapBtn">🎁 Özet kartı</button><button class="btn2" id="csvBtn">⬇ CSV</button><button class="btn2" id="shareBtn">🔗 Link</button>`;
 }
 $('#filters').addEventListener('click', e => {
@@ -1045,7 +1063,19 @@ $('#filters').addEventListener('click', e => {
   UI.path = []; UI.recentN = 20;
   renderProfile(); renderFilters(); renderAll();
 });
-$('#filters').addEventListener('change', e => { if (e.target.id === 'perSel') { F.period = e.target.value; UI.path = []; renderAll(); } });
+$('#filters').addEventListener('change', e => {
+  const id = e.target.id;
+  if (id === 'perSel') {
+    F.period = e.target.value; UI.path = []; UI.recentN = 20;
+    if (F.period === 'custom' && !F.from && !F.to) { const d = new Date(), a = new Date(Date.now() - 6 * 864e5), iso = x => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; F.from = iso(a); F.to = iso(d); }
+    renderFilters(); renderAll();
+  }
+  if (id === 'dFrom' || id === 'dTo') {
+    F[id === 'dFrom' ? 'from' : 'to'] = e.target.value;
+    if (F.from && F.to && F.from > F.to) { if (id === 'dFrom') F.to = F.from; else F.from = F.to; renderFilters(); }
+    UI.path = []; renderAll();
+  }
+});
 
 function exportCSV() {
   const G = LAST; const rows = [['Tarih', 'Renk', 'Sonuç', 'Bitiş', 'Rakip', 'Puanım', 'Rakip puanı', 'Tempo', 'Süre', 'Puanlı', 'Açılış', 'ECO', 'Hamle', 'Doğruluk', 'Rakip doğruluk', 'Link']];
