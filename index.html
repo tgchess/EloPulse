@@ -203,6 +203,8 @@ tr[data-q]:hover td,tr[data-game]:hover td,tr[data-tm]:hover td,tr[data-h2h]:hov
 .mini{flex:none;border-radius:6px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.08)}
 .mini svg{display:block;width:100%;height:100%;max-width:none;border-radius:0}
 .ocell{display:flex;align-items:center;gap:10px}
+.ttl,a.ttl{border-bottom:0;text-decoration:none}
+a.ttl:hover{background:#d3423d;color:#fff}
 .ttl{display:inline-block;background:#b33430;color:#fff;font-size:10.5px;font-weight:700;border-radius:4px;padding:0 4px;margin-right:5px;line-height:16px;vertical-align:1px;letter-spacing:.02em}
 select.on{border-color:var(--brand);color:var(--brand)}
 .drange{display:inline-flex;align-items:center;gap:6px}
@@ -449,7 +451,7 @@ async function loadTitles() {
 }
 function titlesReady() { if (!$('#app').hidden) { renderFilters(); renderAll(); } }
 const titleOf = u => TITLES.get(String(u || '').toLowerCase()) || null;
-const tbadge = u => { const t = titleOf(u); return t ? `<span class="ttl">${t}</span>` : ''; };
+const tbadge = u => { const t = titleOf(u); return t ? `<a class="ttl" href="https://www.chess.com/member/${encodeURIComponent(u)}" target="_blank" rel="noopener" title="${esc(u)} · Chess.com profilini aç">${t}</a>` : ''; };
 function showApp() {
   $('#hero').hidden = true; $('#app').hidden = false; renderProfile(); renderFilters(); renderAll(); loadTitles();
   ENG.clear(); const who = ME;
