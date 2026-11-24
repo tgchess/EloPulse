@@ -203,6 +203,8 @@ tr[data-q]:hover td,tr[data-game]:hover td,tr[data-tm]:hover td,tr[data-h2h]:hov
 .mini{flex:none;border-radius:6px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.08)}
 .mini svg{display:block;width:100%;height:100%;max-width:none;border-radius:0}
 .ocell{display:flex;align-items:center;gap:10px}
+.ttl{display:inline-block;background:#b33430;color:#fff;font-size:10.5px;font-weight:700;border-radius:4px;padding:0 4px;margin-right:5px;line-height:16px;vertical-align:1px;letter-spacing:.02em}
+select.on{border-color:var(--brand);color:var(--brand)}
 .drange{display:inline-flex;align-items:center;gap:6px}
 .drange input{background:var(--surface-1);color:var(--text-primary);border:1px solid var(--border);border-radius:999px;padding:5px 10px;font:inherit;font-size:13px;color-scheme:dark}
 .drange input:focus{outline:none;border-color:var(--brand-2)}
@@ -350,7 +352,7 @@ const PIECE_TR = {Q:'Vezir', R:'Kale', B:'Fil', N:'At', P:'Piyon', K:'Şah'};
 const OPEN_KEYS = new Set(['Opening','Defense','Defence','Game','Gambit','Attack','System','Countergambit']);
 
 let ALL = [], ME = '', PROFILE = null, STATS = null, LAST = [], GBY = new Map();
-const F = {tc:'all', rated:false, period:'all', from:'', to:''};
+const F = {tc:'all', rated:false, period:'all', from:'', to:'', title:'all'};
 const UI = {tab:'genel', openColor:'w', rivalSort:'g', treeColor:'w', path:[], recentN:20};
 let CMP = null;
 
@@ -429,12 +431,27 @@ async function load(nick, fresh) {
   if (other) parts.push(`${fmt(other)} varyant oyunu (Chess960 vb.) hariç tutuldu.`);
   if (fromCache) parts.push(`<button class="linkbtn" id="refetch">Tümünü yeniden indir</button>`);
   setStatus(parts.join(' '));
-  Object.assign(F, {tc: 'all', rated: false, period: 'all', from: '', to: ''}); UI.path = []; UI.recentN = 20; CMP = null;
+  Object.assign(F, {tc: 'all', rated: false, period: 'all', from: '', to: '', title: 'all'}); UI.path = []; UI.recentN = 20; CMP = null;
   showApp();
 }
 function setAll(games) { ALL = games.filter(g => g.rules === 'chess').sort((a, b) => a.t - b.t); GBY = new Map(ALL.map(g => [g.url, g])); }
+// ---------- titled players (Chess.com published list) ----------
+const TITLE_LIST = ['GM', 'IM', 'FM', 'CM', 'NM', 'WGM', 'WIM', 'WFM', 'WCM', 'WNM'];
+const TITLES = new Map(); let titlesState = 'idle';
+async function loadTitles() {
+  if (titlesState !== 'idle') return; titlesState = 'loading';
+  const c = await cacheGet('titles');
+  if (c && c.d && Date.now() - c.t < 7 * 864e5) { for (const [k, v] of c.d) TITLES.set(k, v); titlesState = 'ok'; return titlesReady(); }
+  const res = await Promise.all(TITLE_LIST.map(t => getJSON('https://api.chess.com/pub/titled/' + t, 3).then(j => [t, j.players || []]).catch(() => [t, null])));
+  if (res.every(([, l]) => l === null)) { titlesState = 'idle'; if (c && c.d) { for (const [k, v] of c.d) TITLES.set(k, v); titlesState = 'ok'; titlesReady(); } return; }
+  for (const [t, list] of res) if (list) for (const u of list) TITLES.set(String(u).toLowerCase(), t);
+  cachePut('titles', {t: Date.now(), d: [...TITLES]}); titlesState = 'ok'; titlesReady();
+}
+function titlesReady() { if (!$('#app').hidden) { renderFilters(); renderAll(); } }
+const titleOf = u => TITLES.get(String(u || '').toLowerCase()) || null;
+const tbadge = u => { const t = titleOf(u); return t ? `<span class="ttl">${t}</span>` : ''; };
 function showApp() {
-  $('#hero').hidden = true; $('#app').hidden = false; renderProfile(); renderFilters(); renderAll();
+  $('#hero').hidden = true; $('#app').hidden = false; renderProfile(); renderFilters(); renderAll(); loadTitles();
   ENG.clear(); const who = ME;
   cacheGet('eng:' + who).then(o => { if (o && o.v === ENG_VER && who === ME) { for (const k in o.d) ENG.set(k, o.d[k]); if (UI.tab === 'gelisim') renderAll(); } });
 }
@@ -654,14 +671,14 @@ function inPeriod(t) {
   return new Date(t).getFullYear() == p;
 }
 function filtered() {
-  const L = ALL.filter(g => (F.tc === 'all' || g.tc === F.tc) && (!F.rated || g.rated) && inPeriod(g.t));
+  const L = ALL.filter(g => (F.tc === 'all' || g.tc === F.tc) && (!F.rated || g.rated) && inPeriod(g.t) && (F.title === 'all' || (F.title === 'any' ? !!titleOf(g.opp) : titleOf(g.opp) === F.title)));
   return F.period[0] === 'n' ? L.slice(-+F.period.slice(1)) : L;
 }
 const dstr = t => { const d = new Date(t); return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`; };
 const dayKey = t => { const d = new Date(t); return d.getFullYear() * 1e4 + d.getMonth() * 100 + d.getDate(); };
 const tcLabel = tc => TC[tc] ? TC[tc].l : tc;
 const userLink = u => `<a href="https://www.chess.com/member/${encodeURIComponent(u)}" target="_blank" rel="noopener">${esc(u)}</a>`;
-const rivalBtn = u => `<button class="linkbtn" data-h2h="${esc(u)}">${esc(u)}</button>`;
+const rivalBtn = u => `${tbadge(u)}<button class="linkbtn" data-h2h="${esc(u)}">${esc(u)}</button>`;
 const gameLink = (g, txt) => `<a href="${esc(g.url)}" target="_blank" rel="noopener" title="Chess.com'da aç">${txt || '↗'}</a>`;
 const flag = cc => cc && /^[A-Z]{2}$/.test(cc) && !/^X/.test(cc) ? `<img class="flag" src="https://flagcdn.com/w40/${cc.toLowerCase()}.png" srcset="https://flagcdn.com/w80/${cc.toLowerCase()}.png 2x" alt="${cc}" title="${cc}" onerror="this.replaceWith(document.createTextNode(' ${cc}'))">` : '';
 const meName = () => esc(PROFILE && PROFILE.username || ME);
@@ -904,14 +921,14 @@ function gameEntry(g, opts = {}) {
   let i = opts.ply != null ? Math.min(opts.ply, pos.length - 1) : pos.length - 1; const flip = g.color === 'b';
   const E = ENG.get(g.url), cls = E ? classifyAll(g, E) : null;
   const SYM = {B: '??', M: '?', I: '?!'}, COL = {B: '#e66767', M: '#e8a23a', I: '#d9c74a'};
-  const me = `${meName()} <span class="muted">(${g.myR})</span>`, op = `${esc(g.opp)} <span class="muted">(${g.opR})</span>`;
+  const me = `${meName()} <span class="muted">(${g.myR})</span>`, op = `${tbadge(g.opp)}${esc(g.opp)} <span class="muted">(${g.opR})</span>`;
   const top = flip ? `♔ ${op}` : `♚ ${op}`, bottom = flip ? `♚ ${me}` : `♔ ${me}`;
   const method = METHOD[g.res === 'W' ? g.opRes : g.myRes] || '';
   return {
     html: () => {
       const mb = k => { const c = cls && cls[k]; return `<button data-ply="${k + 1}"${c && c.cls ? ` style="color:${COL[c.cls]}"` : ''}>${esc(g.mv[k])}${c && c.cls ? SYM[c.cls] : ''}</button>`; };
       let mv = ''; for (let k = 0; k < g.mv.length; k += 2) mv += `<span class="mn">${k / 2 + 1}.</span>${mb(k)}${g.mv[k + 1] ? mb(k + 1) : '<span></span>'}`;
-      return `<h2 class="mt"><span class="res ${g.res}">${{W: 'G', D: 'B', L: 'M'}[g.res]}</span> ${meName()} vs ${esc(g.opp)}</h2>
+      return `<h2 class="mt"><span class="res ${g.res}">${{W: 'G', D: 'B', L: 'M'}[g.res]}</span> ${meName()} vs ${tbadge(g.opp)}${esc(g.opp)}</h2>
         <div class="sub">${RES_TR[g.res]} · ${method} · ${tcName(g.tcs)} ${tcLabel(g.tc)} · ${g.rated ? 'Puanlı' : 'Puansız'} · ${dstr(g.t)} ${new Date(g.t).toTimeString().slice(0, 5)}<br>${esc(g.open)}${g.eco ? ' (' + esc(g.eco) + ')' : ''}${g.acc != null ? ` · Doğruluk: sen %${g.acc.toFixed(1)}${g.oacc != null ? ', rakip %' + g.oacc.toFixed(1) : ''}` : ''}</div>
         <div class="viewer"><div>
           <div class="players">${top}</div><div id="vb"></div><div class="players">${bottom}</div>
@@ -968,9 +985,9 @@ function h2hEntry(name) {
   return {
     html: () => {
       const L = LAST.filter(g => g.opp.toLowerCase() === k), r = wdl(L);
-      if (!L.length) return `<h2 class="mt">${meName()} vs ${esc(name)}</h2><div class="empty">Bu filtrede bu rakiple oyun yok.</div>`;
+      if (!L.length) return `<h2 class="mt">${meName()} vs ${tbadge(name)}${esc(name)}</h2><div class="empty">Bu filtrede bu rakiple oyun yok.</div>`;
       const W = L.filter(g => g.color === 'w'), B = L.filter(g => g.color === 'b');
-      return `<h2 class="mt">${meName()} <span class="muted">vs</span> ${esc(name)}</h2>
+      return `<h2 class="mt">${meName()} <span class="muted">vs</span> ${tbadge(name)}${esc(name)}</h2>
       <div class="sub">${fmt(r.n)} maç · ${dstr(L[0].t)} – ${dstr(L[L.length - 1].t)} · ${userLink(name)} · <button class="linkbtn" data-analyze="${esc(name)}">Bu oyuncuyu analiz et →</button> · <button class="linkbtn" data-cmp="${esc(name)}">Karşılaştır →</button></div>
       <div class="kpis" style="margin:12px 0">${kpiBox('Skor', `${r.W}-${r.D}-${r.L}`, '%' + scp(r), '', 1)}${kpiBox('Beyazla', '%' + scp(wdl(W)), W.length + ' maç', W.length ? qa({title: `${name} karşısında beyazla`, list: W}) : '', 1)}${kpiBox('Siyahla', '%' + scp(wdl(B)), B.length + ' maç', B.length ? qa({title: `${name} karşısında siyahla`, list: B}) : '', 1)}${kpiBox('Son maç', dstr(L[L.length - 1].t).replace(/ \d{4}$/, ''), RES_TR[L[L.length - 1].res], ga(L[L.length - 1]), 1)}</div>${wdlBar(r, true, {title: name + ' karşısında', list: L})}
       <div class="two" style="margin-top:6px"><div><div class="lbl">Tempoya göre</div>${groupTable(groupBy(L, g => tcLabel(g.tc)), 'Tempo', 4, {prefix: name + ' · '})}</div><div><div class="lbl">Açılışlar</div>${groupTable(groupBy(L, g => g.fam), 'Açılış', 5, {prefix: name + ' · ', thumb: 44})}</div></div>
@@ -1040,6 +1057,15 @@ function renderProfile() {
     </div>
     ${ratings || puz ? `<div class="ratings">${ratings}${puz}</div>` : ''}`;
 }
+function titleSelect() {
+  if (titlesState !== 'ok') return '';
+  const base = ALL.filter(g => (F.tc === 'all' || g.tc === F.tc) && (!F.rated || g.rated));
+  const cnt = {}; let any = 0; const beat = {}; let anyW = 0;
+  for (const g of base) { const t = titleOf(g.opp); if (!t) continue; any++; cnt[t] = (cnt[t] || 0) + 1; if (g.res === 'W') { anyW++; beat[t] = (beat[t] || 0) + 1; } }
+  if (!any && F.title === 'all') return '';
+  const opt = (v, l) => `<option value="${v}"${F.title === v ? ' selected' : ''}>${l}</option>`;
+  return `<select id="titleSel" aria-label="Rakip ünvanı" class="${F.title !== 'all' ? 'on' : ''}">${opt('all', 'Tüm rakipler')}${opt('any', `🏅 Ünvanlılar (${any} maç · ${anyW} G)`)}${TITLE_LIST.filter(t => cnt[t]).map(t => opt(t, `${t} (${cnt[t]} maç · ${beat[t] || 0} G)`)).join('')}</select>`;
+}
 function renderFilters() {
   const tcs = ['all', ...['bullet', 'blitz', 'rapid', 'daily'].filter(k => ALL.some(g => g.tc === k))];
   const years = [...new Set(ALL.map(g => new Date(g.t).getFullYear()))].sort((a, b) => b - a);
@@ -1050,6 +1076,7 @@ function renderFilters() {
     tcs.map(k => `<button class="chip${F.tc === k ? ' on' : ''}" data-ftc="${k}">${k === 'all' ? 'Tümü' : TC[k].l}</button>`).join('') +
     `<span class="sep"></span><button class="chip${F.rated ? ' on' : ''}" data-rated>Sadece puanlı</button>` +
     `<select id="perSel" aria-label="Dönem">${per.map(([v, l]) => `<option value="${v}"${F.period === v ? ' selected' : ''}>${l}</option>`).join('')}</select>` +
+    titleSelect() +
     (F.period === 'custom' ? `<span class="drange"><input type="date" id="dFrom" value="${F.from}" min="${minD}" max="${maxD}" aria-label="Başlangıç tarihi"><span class="muted">–</span><input type="date" id="dTo" value="${F.to}" min="${minD}" max="${maxD}" aria-label="Bitiş tarihi"></span>` : '') +
     `<span class="grow"></span><button class="btn2" id="wrapBtn">🎁 Özet kartı</button><button class="btn2" id="csvBtn">⬇ CSV</button><button class="btn2" id="shareBtn">🔗 Link</button>`;
 }
@@ -1070,6 +1097,7 @@ $('#filters').addEventListener('change', e => {
     if (F.period === 'custom' && !F.from && !F.to) { const d = new Date(), a = new Date(Date.now() - 6 * 864e5), iso = x => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; F.from = iso(a); F.to = iso(d); }
     renderFilters(); renderAll();
   }
+  if (id === 'titleSel') { F.title = e.target.value; UI.path = []; UI.recentN = 20; renderFilters(); renderAll(); }
   if (id === 'dFrom' || id === 'dTo') {
     F[id === 'dFrom' ? 'from' : 'to'] = e.target.value;
     if (F.from && F.to && F.from > F.to) { if (id === 'dFrom') F.to = F.from; else F.from = F.to; renderFilters(); }
@@ -1310,7 +1338,7 @@ function rivalMap(G) {
 }
 function rivalTable(list) {
   return `<div class="tscroll"><table><tr><th>Rakip</th><th class="n">Maç</th><th class="n">G-B-M</th><th>Skor</th><th class="n">Son puanı</th><th class="n">Son maç</th></tr>${list.map(o =>
-    `<tr data-h2h="${esc(o.name)}"><td><b>${esc(o.name)}</b></td><td class="n">${fmt(o.n)}</td><td class="n">${o.W}-${o.D}-${o.L}</td><td class="bar">${wdlBar(o)}</td><td class="n muted">${o.r || '–'}</td><td class="n muted">${dstr(o.last)}</td></tr>`).join('')}</table></div>`;
+    `<tr data-h2h="${esc(o.name)}"><td>${tbadge(o.name)}<b>${esc(o.name)}</b></td><td class="n">${fmt(o.n)}</td><td class="n">${o.W}-${o.D}-${o.L}</td><td class="bar">${wdlBar(o)}</td><td class="n muted">${o.r || '–'}</td><td class="n muted">${dstr(o.last)}</td></tr>`).join('')}</table></div>`;
 }
 function renderRivals(G) {
   const all = rivalMap(G), key = UI.rivalSort === 'g' ? 'n' : UI.rivalSort;
