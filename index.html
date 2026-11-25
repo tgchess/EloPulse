@@ -216,6 +216,32 @@ select.on{border-color:var(--brand);color:var(--brand)}
 .ipair>div{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11.5px;color:var(--text-muted)}
 .dhead{display:flex;gap:16px;align-items:center;margin-bottom:8px}
 @media(max-width:560px){.dhead .mini{width:110px!important;height:110px!important}}
+/* DNA, time machine, play-now */
+.dna{display:grid;grid-template-columns:minmax(260px,420px) 1fr;gap:22px;align-items:center}
+@media(max-width:760px){.dna{grid-template-columns:1fr}}
+.radar{width:100%;max-width:520px;display:block;margin:0 auto;overflow:visible}
+.rlab[data-q]{cursor:pointer}.rlab[data-q]:hover text:first-child{fill:var(--brand)}
+.dnamatch{background:linear-gradient(135deg,rgba(44,248,153,.12),var(--surface-2));border:1px solid rgba(44,248,153,.3);border-radius:14px;padding:14px 16px}
+.dnaname{font-size:26px;font-weight:800;letter-spacing:-.02em}
+.tmbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:4px 0 14px}
+.tmbar>div{display:flex;gap:8px;align-items:center}
+.tmgrid{display:grid;grid-template-columns:1.25fr 1fr;gap:22px;align-items:start}
+@media(max-width:860px){.tmgrid{grid-template-columns:1fr}}
+.tmsum{display:grid;gap:6px;margin-bottom:12px;font-size:13.5px}
+.tmsum div{background:var(--surface-2);border-radius:9px;padding:8px 11px}
+.card.play{border-width:1px}
+.card.play.green{border-color:rgba(44,248,153,.45);background:linear-gradient(135deg,rgba(44,248,153,.10),var(--surface-1) 60%)}
+.card.play.yellow{border-color:rgba(232,162,58,.5);background:linear-gradient(135deg,rgba(232,162,58,.10),var(--surface-1) 60%)}
+.card.play.red{border-color:rgba(230,103,103,.55);background:linear-gradient(135deg,rgba(230,103,103,.12),var(--surface-1) 60%)}
+.playtop{display:flex;gap:14px;align-items:center}
+.light{font-size:40px;line-height:1}
+.playt{font-size:20px;font-weight:800;letter-spacing:-.01em}
+.plays{font-size:13.5px;color:var(--text-secondary)}
+.playest{text-align:center;flex:none;min-width:92px}
+.playest b{font-size:26px;display:block;line-height:1.15}
+.playwhy{list-style:none;margin:12px 0 10px;padding:0;display:grid;gap:6px}
+.playwhy li{display:flex;gap:9px;font-size:13.5px}
+@media(max-width:560px){.playtop{flex-wrap:wrap}.playest{min-width:0;text-align:left;display:flex;gap:8px;align-items:baseline}.playest br{display:none}}
 section[hidden],.modal[hidden],[hidden]{display:none!important}
 </style>
 </head>
@@ -260,10 +286,12 @@ section[hidden],.modal[hidden],[hidden]{display:none!important}
       <button class="tab" data-tab="zaman">Zaman &amp; Psikoloji</button>
       <button class="tab" data-tab="karsi">Karşılaştır</button>
       <button class="tab" data-tab="ilginc">Rozetler &amp; Rekorlar</button>
+      <button class="tab" data-tab="dna">🧬 DNA &amp; Zaman makinesi</button>
       <button class="tab" data-tab="gelisim">🚀 Nasıl gelişirim?</button>
     </nav>
 
     <section data-sec="genel">
+      <div class="card play" id="playCard" style="margin-bottom:14px"></div>
       <div class="kpis" id="kpis" style="margin-bottom:14px"></div>
       <div class="grid">
         <div class="card" id="insightCard"></div>
@@ -307,6 +335,12 @@ section[hidden],.modal[hidden],[hidden]{display:none!important}
     </section>
     <section data-sec="karsi" hidden>
       <div class="grid"><div class="card" id="cmpCard"></div></div>
+    </section>
+    <section data-sec="dna" hidden>
+      <div class="grid">
+        <div class="card" id="dnaCard"></div>
+        <div class="card" id="tmCard"></div>
+      </div>
     </section>
     <section data-sec="gelisim" hidden>
       <div class="grid">
@@ -1116,12 +1150,13 @@ function exportCSV() {
 
 // =============== render dispatch ===============
 const SECTIONS = {
-  genel: [renderKpis, renderInsights, renderResults, renderEnds, renderRating, renderCalendar, renderMonths, renderRecent],
+  genel: [renderPlayNow, renderKpis, renderInsights, renderResults, renderEnds, renderRating, renderCalendar, renderMonths, renderRecent],
   acilis: [renderTree, renderOpenings, renderVariations, renderFirst, renderCastle],
   rakip: [renderRivals, renderNemesis, renderVictims, renderExpected, renderPerf, renderTimeControls, renderBest, renderWorst],
   zaman: [renderTime, renderTilt, renderHours, renderDays, renderLength],
   karsi: [renderCompare],
   ilginc: [renderBadges, renderFacts, renderMates, renderAccuracy],
+  dna: [renderDNA, renderTimeMachine],
   gelisim: [renderDev, renderEngine]
 };
 function renderAll() {
@@ -1910,6 +1945,223 @@ function renderEngineResults(G) {
   </div>`;
 }
 
+// =============== SATRANÇ DNA'SI ===============
+const lin = (x, a, b) => Math.max(0, Math.min(100, Math.round((x - a) / (b - a) * 100)));
+const DNA_AXES = [
+  {k: 'agg', l: 'Saldırganlık', adj: 'saldırgan', low: 'sakin ve temkinli oynuyorsun', d: 'İlk 25 hamlede şah çekme ve taş alma oranı'},
+  {k: 'risk', l: 'Risk iştahı', adj: 'risk sever', low: 'gambitlerden uzak duruyorsun', d: 'Gambit açılışlarla oynanan oyunların payı'},
+  {k: 'speed', l: 'Hız', adj: 'hızlı', low: 'hamlelerinde uzun düşünüyorsun', d: 'İlk 30 hamlede harcanan süre (başlangıç süresine oranla); az süre = yüksek puan'},
+  {k: 'sharp', l: 'Taktik keskinlik', adj: 'taktik açıdan keskin', low: 'kısa sürede kazandığın oyun az', d: '30 hamle dolmadan gelen galibiyetlerin payı'},
+  {k: 'end', l: 'Oyun sonu', adj: 'oyun sonunda güçlü', low: 'uzun oyunlarda zorlanıyorsun', d: '50+ hamlelik oyunlardaki skorun, genel skoruna göre'},
+  {k: 'pat', l: 'Sabır', adj: 'sabırlı', low: 'oyunların kısa sürüyor', d: 'Ortalama oyun uzunluğu'},
+  {k: 'calm', l: 'Soğukkanlılık', adj: 'soğukkanlı', low: 'kayıplardan sonra etkileniyorsun', d: 'Mağlubiyetten sonraki skorun, galibiyetten sonrakine göre'},
+  {k: 'loyal', l: 'Repertuvar sadakati', adj: 'repertuvarına sadık', low: 'açılışlarını sık değiştiriyorsun', d: 'Her renkte en çok oynadığın 3 açılışın payı'}
+];
+// playful style archetypes on the same 8 axes (agg, risk, speed, sharp, end, pat, calm, loyal)
+const ARCHETYPES = [
+  {n: 'Mikhail Tal', t: 'Riga\'nın Büyücüsü', d: 'Fedalar, karmaşa ve ateşli saldırılar', v: [92, 90, 65, 92, 40, 30, 55, 45]},
+  {n: 'Garry Kasparov', t: 'Dinamik saldırgan', d: 'Derin hazırlık ve inisiyatif', v: [85, 55, 60, 85, 60, 50, 60, 80]},
+  {n: 'Magnus Carlsen', t: 'Oyun sonu makinesi', d: 'Küçük avantajları sabırla paraya çevirir', v: [50, 30, 70, 60, 95, 85, 92, 40]},
+  {n: 'Anatoly Karpov', t: 'Boa yılanı', d: 'Rakibini yavaş yavaş sıkıştırır', v: [30, 10, 50, 40, 90, 90, 80, 85]},
+  {n: 'Tigran Petrosian', t: 'Demir savunma', d: 'Önce güvenlik, sonra fırsat', v: [20, 10, 40, 35, 75, 85, 90, 70]},
+  {n: 'Bobby Fischer', t: 'Kusursuz teknisyen', d: 'Net planlar, sadık repertuvar', v: [70, 20, 70, 75, 80, 65, 75, 95]},
+  {n: 'José Raúl Capablanca', t: 'Doğal yetenek', d: 'Sade, hızlı ve hatasız oyun', v: [40, 15, 88, 50, 95, 70, 85, 60]},
+  {n: 'Hikaru Nakamura', t: 'Blitz kralı', d: 'Hız, sezgi ve saat baskısı', v: [70, 50, 95, 80, 70, 50, 72, 60]},
+  {n: 'Alireza Firouzja', t: 'Genç fırtına', d: 'Hızlı, cesur ve bazen dağınık', v: [85, 60, 90, 85, 55, 35, 45, 45]}
+];
+function dnaOf(G) {
+  const out = {}, lists = {}, raw = {};
+  if (!G.length) return {v: {}, lists, raw};
+  // aggression
+  let mv = 0, act = 0; const aggList = [];
+  for (const g of G) {
+    let gm = 0, ga = 0;
+    for (let i = g.color === 'w' ? 0 : 1; i < Math.min(g.mv.length, 50); i += 2) { gm++; const s = g.mv[i]; if (s.includes('x') || /[+#]/.test(s)) ga++; }
+    mv += gm; act += ga; if (gm >= 8 && ga / gm >= 0.45) aggList.push(g);
+  }
+  const aggR = mv ? act / mv : 0; out.agg = lin(aggR, 0.18, 0.42); raw.agg = `Hamlelerinin %${Math.round(aggR * 100)}'i şah ya da taş alma`; lists.agg = aggList;
+  // risk
+  const gam = G.filter(g => /gambit/i.test(g.open)); out.risk = lin(gam.length / G.length, 0, 0.25); raw.risk = `Oyunların %${pct(gam.length, G.length)}'i gambit`; lists.risk = gam;
+  // speed
+  const C = G.filter(g => g.clk && g.base);
+  if (C.length >= 20) {
+    const fr = C.reduce((a, g) => a + (g.clk.ph[0][0] + g.clk.ph[1][0]) / g.base, 0) / C.length;
+    out.speed = lin(fr, 0.8, 0.25); raw.speed = `İlk 30 hamlede sürenin ortalama %${Math.round(fr * 100)}'i harcanıyor`; lists.speed = C.filter(g => (g.clk.ph[0][0] + g.clk.ph[1][0]) / g.base < 0.3);
+  } else { out.speed = null; raw.speed = 'Yeterli saat verisi yok'; }
+  // sharpness
+  const W = G.filter(g => g.res === 'W'), quickW = W.filter(g => g.ply <= 60);
+  out.sharp = W.length >= 10 ? lin(quickW.length / W.length, 0.05, 0.45) : null; raw.sharp = `Galibiyetlerin %${pct(quickW.length, W.length)}'i 30 hamleden kısa`; lists.sharp = quickW;
+  // endgame
+  const base = sc(wdl(G)), LG = G.filter(g => g.ply >= 100);
+  out.end = LG.length >= 10 ? Math.max(0, Math.min(100, Math.round(50 + (sc(wdl(LG)) - base) * 400))) : null; raw.end = LG.length >= 10 ? `Uzun oyunlarda skor %${scp(wdl(LG))} (genel %${Math.round(base * 100)})` : 'Yeterli uzun oyun yok'; lists.end = LG;
+  // patience
+  const avgM = G.reduce((a, g) => a + g.ply, 0) / G.length / 2; out.pat = lin(avgM, 28, 50); raw.pat = `Ortalama ${Math.round(avgM)} hamle`; lists.pat = G.filter(g => g.ply >= 120);
+  // composure
+  const T = tiltStats(G);
+  if (T.afterL.r.n >= 20 && T.afterW.r.n >= 20) { out.calm = Math.max(0, Math.min(100, Math.round(50 + (sc(T.afterL.r) - sc(T.afterW.r)) * 600))); raw.calm = `Kayıptan sonra %${scp(T.afterL.r)}, galibiyetten sonra %${scp(T.afterW.r)}`; lists.calm = T.afterL.list; }
+  else { out.calm = null; raw.calm = 'Yeterli seans verisi yok'; }
+  // loyalty
+  let loyN = 0; const loyList = [];
+  for (const col of ['w', 'b']) { const CG = G.filter(g => g.color === col); const top = groupBy(CG, g => g.fam).filter(x => x.k !== 'Bilinmiyor').slice(0, 3); for (const x of top) { loyN += x.r.n; loyList.push(...x.list); } }
+  const loyR = loyN / G.length; out.loyal = lin(loyR, 0.35, 0.85); raw.loyal = `Oyunların %${Math.round(loyR * 100)}'i en sevdiğin 3 açılışta`; lists.loyal = loyList;
+  return {v: out, lists, raw};
+}
+function dnaMatch(v) {
+  const keys = DNA_AXES.map(a => a.k);
+  return ARCHETYPES.map(a => {
+    let s = 0, n = 0; keys.forEach((k, i) => { if (v[k] != null) { s += (v[k] - a.v[i]) ** 2; n++; } });
+    const dist = n ? Math.sqrt(s / n) : 100; return {...a, sim: Math.max(0, Math.round(100 - dist))};
+  }).sort((a, b) => b.sim - a.sim);
+}
+function radarSVG(series, opts = {}) {
+  const S = opts.size || 360, cx = S / 2, cy = S / 2 + 4, R = S / 2 - 62, N = DNA_AXES.length;
+  const pt = (i, v) => { const a = -Math.PI / 2 + i * 2 * Math.PI / N; return [cx + Math.cos(a) * R * v / 100, cy + Math.sin(a) * R * v / 100]; };
+  let s = `<svg viewBox="-78 0 ${S + 156} ${S + 8}" class="radar" role="img" aria-label="Satranç DNA radar grafiği">`;
+  for (const lv of [25, 50, 75, 100]) s += `<polygon points="${DNA_AXES.map((_, i) => pt(i, lv).join(',')).join(' ')}" fill="none" stroke="#2a303a" stroke-width="1"/>`;
+  DNA_AXES.forEach((_, i) => { const [x, y] = pt(i, 100); s += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#2a303a"/>`; });
+  for (const se of series) {
+    const pts = DNA_AXES.map((a, i) => pt(i, se.v[a.k] == null ? 50 : se.v[a.k]).join(',')).join(' ');
+    s += `<polygon points="${pts}" fill="${se.fill || 'none'}" stroke="${se.color}" stroke-width="2" ${se.dash ? 'stroke-dasharray="5 4"' : ''} stroke-linejoin="round"/>`;
+    if (se.dots) DNA_AXES.forEach((a, i) => { if (se.v[a.k] == null) return; const [x, y] = pt(i, se.v[a.k]); s += `<circle cx="${x}" cy="${y}" r="3.5" fill="${se.color}"/>`; });
+  }
+  DNA_AXES.forEach((a, i) => {
+    const [x, y] = pt(i, 118), anchor = Math.abs(x - cx) < 8 ? 'middle' : x > cx ? 'start' : 'end';
+    const main = series[0], val = main.v[a.k];
+    const attr = opts.lists && opts.lists[a.k] && opts.lists[a.k].length ? qa({title: `🧬 ${a.l}`, list: opts.lists[a.k], sub: a.d}) : '';
+    const fs = opts.fs || 11.5;
+    s += `<g class="rlab"${attr} data-tip="<b>${a.l}</b><br>${esc(a.d)}${opts.raw ? '<br>' + esc(opts.raw[a.k] || '') : ''}${attr ? '<br>Tıkla: ilgili oyunlar' : ''}"><text x="${x}" y="${y}" text-anchor="${anchor}" font-size="${fs}" fill="var(--text-secondary)">${a.l}</text><text x="${x}" y="${y + fs + 3}" text-anchor="${anchor}" font-size="${fs + 1}" font-weight="700" fill="${main.color}">${val == null ? '–' : val}${series[1] && series[1].v[a.k] != null && val != null ? `<tspan fill="var(--text-muted)" font-weight="500"> / ${series[1].v[a.k]}</tspan>` : ''}</text></g>`;
+  });
+  return s + '</svg>';
+}
+function dnaSummary(v) {
+  const ax = DNA_AXES.filter(a => v[a.k] != null);
+  const hi = ax.filter(a => v[a.k] >= 62).sort((a, b) => v[b.k] - v[a.k]).slice(0, 3), lo = ax.filter(a => v[a.k] <= 38).sort((a, b) => v[a.k] - v[b.k]).slice(0, 2);
+  let t = hi.length ? `Sen ${hi.map(a => a.adj).join(', ').replace(/, ([^,]*)$/, ' ve $1')} bir oyuncusun.` : 'Dengeli bir tarzın var; hiçbir eksende uca kaçmıyorsun.';
+  if (lo.length) t += ` Öte yandan ${lo.map(a => a.low).join(' ve ')}.`;
+  return t;
+}
+function renderDNA(G) {
+  const D = dnaOf(G), M = dnaMatch(D.v), top = M[0];
+  $('#dnaCard').innerHTML = head('🧬 Satranç DNA\'n', `${fmt(G.length)} oyundan çıkarılan oyun tarzı · ${periodLabel()}${F.tc !== 'all' ? ' · ' + TC[F.tc].l : ''} · eksen adlarına tıklayınca ilgili oyunlar açılır`) +
+    `<div class="dna"><div class="dnachart">${radarSVG([{v: D.v, color: '#2cf899', fill: 'rgba(44,248,153,.18)', dots: true}, {v: Object.fromEntries(DNA_AXES.map((a, i) => [a.k, top.v[i]])), color: 'rgba(238,241,244,.55)', dash: true}], {lists: D.lists, raw: D.raw, fs: innerWidth < 600 ? 19 : 11.5})}
+      <div class="legend" style="justify-content:center"><span><i class="dot" style="background:#2cf899"></i>Sen</span><span><i style="width:16px;border-top:2px dashed rgba(238,241,244,.6);display:inline-block"></i>${esc(top.n)}</span></div></div>
+      <div style="min-width:0">
+        <div class="dnamatch"><div class="muted" style="font-size:12.5px">Tarzın en çok benzeyen</div><div class="dnaname">${esc(top.n)}</div><div style="color:var(--brand);font-weight:600">${esc(top.t)} · %${top.sim} benzerlik</div><div class="muted" style="font-size:13px;margin-top:2px">${esc(top.d)}</div></div>
+        <p style="font-size:14.5px;line-height:1.55;margin:14px 0">${dnaSummary(D.v)}</p>
+        <div class="lbl">Diğer benzerlikler</div>
+        ${M.slice(1, 4).map(a => `<div class="hbar" data-tip="${esc(a.t)} · ${esc(a.d)}"><span>${esc(a.n)}</span><div class="track"><div class="fill" style="width:${a.sim}%;background:rgba(44,248,153,.55)"></div></div><span class="n muted" style="text-align:right">%${a.sim}</span></div>`).join('')}
+        <div class="muted" style="font-size:12px;margin-top:10px">Ünlü oyuncu profilleri tarzlarının eğlence amaçlı birer yorumudur; bilimsel bir ölçüm değildir.</div>
+      </div></div>`;
+}
+
+// =============== ZAMAN MAKİNESİ ===============
+const TM_OPTS = [['r90', 'Son 3 ay'], ['p90', '1 yıl önce, aynı 3 ay'], ['r365', 'Son 12 ay'], ['p365', 'Önceki 12 ay'], ['first90', 'İlk 3 ayın']];
+function tmRange(key) {
+  const now = Date.now(), d = 864e5;
+  if (key === 'r90') return [now - 90 * d, now]; if (key === 'p90') return [now - 455 * d, now - 365 * d];
+  if (key === 'r365') return [now - 365 * d, now]; if (key === 'p365') return [now - 730 * d, now - 365 * d];
+  if (key === 'first90') { const f = ALL.length ? ALL[0].t : now; return [f, f + 90 * d]; }
+  return [new Date(+key, 0, 1).getTime(), new Date(+key, 11, 31, 23, 59, 59).getTime()];
+}
+const tmLabel = k => (TM_OPTS.find(o => o[0] === k) || [k, k])[1];
+function tmStats(L) {
+  const r = wdl(L), rated = L.filter(g => g.rated && g.myR), T = timeStats(L), TL = tiltStats(L), acc = L.filter(g => g.acc != null);
+  const fam = col => (groupBy(L.filter(g => g.color === col), g => g.fam).filter(x => x.k !== 'Bilinmiyor')[0] || {}).k || '–';
+  const E = L.filter(g => ENG.has(g.url)); const ES = E.length >= 3 ? engineStats(E) : null;
+  return {
+    n: r.n, score: r.n ? sc(r) * 100 : null, win: r.n ? r.W / r.n * 100 : null,
+    avgR: rated.length ? rated.reduce((a, g) => a + g.myR, 0) / rated.length : null, peak: rated.length ? Math.max(...rated.map(g => g.myR)) : null,
+    perf: perfRating(rated), opp: rated.length ? rated.reduce((a, g) => a + (g.opR || 0), 0) / rated.length : null,
+    acc: acc.length >= 5 ? acc.reduce((a, g) => a + g.acc, 0) / acc.length : null,
+    trouble: T && T.n >= 10 ? T.trouble.length / T.n * 100 : null, flag: T && T.nLoss >= 5 ? T.toLoss.length / T.nLoss * 100 : null,
+    afterL: TL.afterL.r.n >= 10 ? sc(TL.afterL.r) * 100 : null, len: r.n ? L.reduce((a, g) => a + g.ply, 0) / r.n / 2 : null,
+    quickL: L.filter(g => g.res === 'L').length >= 10 ? L.filter(g => g.res === 'L' && g.ply <= 50).length / L.filter(g => g.res === 'L').length * 100 : null,
+    w: wdl(L.filter(g => g.color === 'w')), b: wdl(L.filter(g => g.color === 'b')), famW: fam('w'), famB: fam('b'),
+    acpl: ES ? ES.acpl : null, bpg: ES ? ES.blundersPerGame : null
+  };
+}
+function renderTimeMachine() {
+  const base = ALL.filter(g => (F.tc === 'all' || g.tc === F.tc) && (!F.rated || g.rated));
+  const years = [...new Set(base.map(g => new Date(g.t).getFullYear()))].sort((a, b) => b - a).map(String);
+  const inR = k => { const [a, b] = tmRange(k); return base.filter(g => g.t >= a && g.t <= b); };
+  if (!UI.tmA) { UI.tmA = 'r90'; UI.tmB = inR('p90').length >= 20 ? 'p90' : 'first90'; }
+  const A = inR(UI.tmA), B = inR(UI.tmB), sa = tmStats(A), sb = tmStats(B);
+  const sel = (id, v) => `<select id="${id}" class="tmsel">${[...TM_OPTS, ...years.map(y => [y, y])].map(([k, l]) => `<option value="${k}"${v === k ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
+  const n1 = v => v == null ? '–' : fmt(Math.round(v)), p1 = v => v == null ? '–' : '%' + Math.round(v), d1 = v => v == null ? '–' : v.toFixed(1).replace('.', ',');
+  const rows = [
+    ['Maç sayısı', sa.n, sb.n, null, n1], ['Ortalama puan', sa.avgR, sb.avgR, 1, n1], ['Zirve puan', sa.peak, sb.peak, 1, n1], ['Performans puanı', sa.perf, sb.perf, 1, n1],
+    ['Ortalama rakip puanı', sa.opp, sb.opp, 1, n1], ['Skor', sa.score, sb.score, 1, p1], ['Galibiyet oranı', sa.win, sb.win, 1, p1],
+    ['Beyazla skor', sa.w.n ? sc(sa.w) * 100 : null, sb.w.n ? sc(sb.w) * 100 : null, 1, p1], ['Siyahla skor', sa.b.n ? sc(sa.b) * 100 : null, sb.b.n ? sc(sb.b) * 100 : null, 1, p1],
+    ['Ortalama doğruluk', sa.acc, sb.acc, 1, d1], ['Zaman sıkıntısı oranı', sa.trouble, sb.trouble, -1, p1], ['Süreden kaybedilen', sa.flag, sb.flag, -1, p1],
+    ['Kayıptan sonraki skor', sa.afterL, sb.afterL, 1, p1], ['Erken çöküş (25 hamleden kısa kayıp)', sa.quickL, sb.quickL, -1, p1], ['Ortalama oyun uzunluğu', sa.len, sb.len, null, n1],
+    ['Motor: ort. hamle kaybı', sa.acpl, sb.acpl, -1, n1], ['Motor: oyun başına büyük hata', sa.bpg, sb.bpg, -1, d1]
+  ].filter(r => r[1] != null || r[2] != null);
+  const deltaCell = (a, b, dir, f) => {
+    if (a == null || b == null || !dir) return '<td class="n muted">–</td>';
+    const d = a - b; if (Math.abs(d) < 0.05) return '<td class="n muted">=</td>';
+    const good = d * dir > 0; return `<td class="n" style="color:${good ? 'var(--brand)' : 'var(--loss)'}">${d > 0 ? '▲' : '▼'} ${f(Math.abs(d)).replace('%', '')}</td>`;
+  };
+  // biggest changes
+  const imp = [], reg = [];
+  const scale = {'Ortalama puan': 50, 'Zirve puan': 50, 'Performans puanı': 50, 'Ortalama rakip puanı': 50, 'Ortalama doğruluk': 3, 'Motor: ort. hamle kaybı': 10, 'Motor: oyun başına büyük hata': 0.5};
+  for (const [l, a, b, dir, f] of rows) { if (a == null || b == null || !dir) continue; const z = (a - b) * dir / (scale[l] || 5); if (z >= 1) imp.push([z, `${l}: ${f(b)} → <b>${f(a)}</b>`]); if (z <= -1) reg.push([z, `${l}: ${f(b)} → <b>${f(a)}</b>`]); }
+  imp.sort((x, y) => y[0] - x[0]); reg.sort((x, y) => x[0] - y[0]);
+  const DA = dnaOf(A), DB = dnaOf(B);
+  $('#tmCard').innerHTML = head('⏳ Zaman makinesi', `İki dönemindeki kendini yan yana koy · ${F.tc !== 'all' ? TC[F.tc].l + ' · ' : ''}üstteki dönem filtresinden bağımsız çalışır`) +
+    `<div class="tmbar"><div><span class="dot" style="background:#2cf899"></span> ${sel('tmA', UI.tmA)} <button class="linkbtn"${A.length ? qa({title: tmLabel(UI.tmA), list: A}) : ''}>${fmt(A.length)} maç</button></div><span class="muted">vs</span><div><span class="dot" style="background:rgba(238,241,244,.6)"></span> ${sel('tmB', UI.tmB)} <button class="linkbtn"${B.length ? qa({title: tmLabel(UI.tmB), list: B}) : ''}>${fmt(B.length)} maç</button></div></div>` +
+    (A.length < 10 || B.length < 10 ? '<div class="empty">Karşılaştırma için her iki dönemde de en az 10 oyun olmalı. Başka bir dönem seç.</div>' :
+    `<div class="tmgrid"><div>
+      ${imp.length || reg.length ? `<div class="tmsum">${imp.slice(0, 3).map(x => `<div>📈 ${x[1]}</div>`).join('')}${reg.slice(0, 3).map(x => `<div>📉 ${x[1]}</div>`).join('')}</div>` : ''}
+      <div class="tscroll"><table><tr><th></th><th class="n" style="color:#2cf899">${esc(tmLabel(UI.tmA))}</th><th class="n">${esc(tmLabel(UI.tmB))}</th><th class="n">Değişim</th></tr>
+      ${rows.map(([l, a, b, dir, f]) => `<tr><td>${l}</td><td class="n"><b>${f(a)}</b></td><td class="n muted">${f(b)}</td>${deltaCell(a, b, dir, f)}</tr>`).join('')}
+      <tr><td>Beyazla favori açılış</td><td class="n"><b>${esc(sa.famW)}</b></td><td class="n muted">${esc(sb.famW)}</td><td></td></tr>
+      <tr><td>Siyahla favori açılış</td><td class="n"><b>${esc(sa.famB)}</b></td><td class="n muted">${esc(sb.famB)}</td><td></td></tr></table></div>
+    </div><div><div class="lbl" style="text-align:center">Tarzın nasıl değişti?</div>${radarSVG([{v: DA.v, color: '#2cf899', fill: 'rgba(44,248,153,.16)', dots: true}, {v: DB.v, color: 'rgba(238,241,244,.6)', dash: true}], {raw: DA.raw, size: 330, fs: innerWidth < 600 ? 19 : 11.5})}
+      <div class="muted" style="font-size:12.5px;text-align:center">${dnaSummary(DA.v)}</div></div></div>`);
+}
+document.addEventListener('change', e => { if (e.target.id === 'tmA' || e.target.id === 'tmB') { UI[e.target.id] = e.target.value; renderTimeMachine(); } });
+
+// =============== ŞİMDİ OYNAMALI MIYIM? ===============
+function renderPlayNow() {
+  const base = ALL.filter(g => (F.tc === 'all' || g.tc === F.tc) && (!F.rated || g.rated) && g.tc !== 'daily');
+  const el = $('#playCard'); if (!base.length) { el.innerHTML = ''; return; }
+  const now = Date.now(), last = base[base.length - 1], ago = now - last.t;
+  const recent = base.slice(-1500), s0 = sc(wdl(recent)), minN = Math.max(20, Math.round(recent.length * 0.02));
+  const T = tiltStats(recent), tilty = T.afterL.r.n >= 20 && sc(T.afterW.r) - sc(T.afterL.r) >= 0.03;
+  const early = [], late = []; T.S.forEach(s => s.forEach((g, i) => { if (i >= 5) late.push(g); else if (i < 3) early.push(g); }));
+  const tired = late.length >= 30 && early.length >= 30 && sc(wdl(early)) - sc(wdl(late)) >= 0.03;
+  const mid = new Date(); mid.setHours(0, 0, 0, 0); const today = base.filter(g => g.t >= mid.getTime());
+  const sess = []; if (ago < 45 * 60e3) { for (let i = base.length - 1; i >= 0; i--) { if (sess.length && sess[0].t - base[i].t > 45 * 60e3) break; sess.unshift(base[i]); } }
+  let streakL = 0; if (ago < 3 * 3600e3) for (let i = base.length - 1; i >= 0 && base[i].res === 'L'; i--) streakL++;
+  const mainTc = (countBy(today.filter(g => g.rated), g => g.tc)[0] || {}).k;
+  const tdR = mainTc ? today.filter(g => g.rated && g.tc === mainTc) : [], dayDelta = tdR.length >= 2 ? tdR[tdR.length - 1].myR - tdR[0].myR : 0;
+  const h = new Date().getHours(), HL = recent.filter(g => new Date(g.t).getHours() === h), hs = HL.length >= minN ? sc(wdl(HL)) : null;
+  let risk = 0, est = s0; const why = [];
+  if (streakL >= 3) { risk += 3 + (tilty ? 1 : 0); why.push(['🔴', `Üst üste <b>${streakL} mağlubiyet</b>${tilty ? ' (ve verine göre kayıptan sonra skorun düşüyor)' : ''}`]); est += tilty ? (sc(T.after2L.r) - s0) : -0.02; }
+  else if (streakL === 2) { risk += 2 + (tilty ? 1 : 0); why.push(['🟠', `Son 2 maçı kaybettin${tilty ? '; geçmişte iki kayıptan sonra skorun %' + scp(T.after2L.r) + '\'ye düşüyor' : ''}`]); if (tilty) est += sc(T.after2L.r) - s0; }
+  else if (streakL === 1 && tilty) { risk += 1; why.push(['🟡', `Son maçı kaybettin; kayıptan sonra skorun genelde %${scp(T.afterL.r)} (normalde %${Math.round(s0 * 100)})`]); est += sc(T.afterL.r) - s0; }
+  if (sess.length >= 20) { risk += 2; why.push(['🔋', `Bu seansta <b>${sess.length}</b> maç oynadın; çok uzun bir seans`]); }
+  else if (sess.length >= 8) { risk += tired ? 2 : 1; why.push(['🔋', `Bu seansta ${sess.length} maç oynadın${tired ? '; verine göre 6. oyundan sonra skorun düşüyor' : ''}`]); if (tired) est += sc(wdl(late)) - s0; }
+  if (today.length >= 30) { risk += 1; why.push(['📅', `Bugün ${today.length} maç oynadın`]); }
+  if (dayDelta <= -60) { risk += 2; why.push(['📉', `Bugün ${TC[mainTc].l} puanın <b>${dayDelta}</b>`]); } else if (dayDelta <= -30) { risk += 1; why.push(['📉', `Bugün ${TC[mainTc].l} puanın ${dayDelta}`]); }
+  else if (dayDelta >= 30) why.push(['📈', `Bugün ${TC[mainTc].l} puanın +${dayDelta}; formdasın`]);
+  if (hs != null && hs < s0 - 0.05) { risk += 1; est += (hs - s0) * 0.6; why.push(['🌙', `Saat ${String(h).padStart(2, '0')}:00 civarında skorun %${Math.round(hs * 100)}; genel ortalamanın altında`]); }
+  else if (hs != null && hs > s0 + 0.04) { risk = Math.max(0, risk - 1); est += (hs - s0) * 0.6; why.push(['☀️', `Bu saatlerde iyi oynuyorsun: skorun %${Math.round(hs * 100)}`]); }
+  if (!today.length) why.unshift(['✨', 'Bugün henüz oynamadın; taze bir başlangıç']);
+  else if (!streakL && sess.length < 8 && dayDelta > -30) why.push(['✅', 'Seri kayıp yok, seans kısa; her şey yolunda']);
+  est = Math.max(0.05, Math.min(0.95, est));
+  const lv = risk >= 4 ? {c: 'red', i: '🔴', t: 'Bugünlük yeter', s: 'Şu an oynamaya devam etmek büyük ihtimalle puan kaybettirir. Mola ver, yarın taze kafayla dön.'}
+    : risk >= 2 ? {c: 'yellow', i: '🟡', t: 'Oynayabilirsin, ama dikkatli ol', s: 'Bir iki maç daha oynayacaksan sakin ol; bir kayıp daha gelirse bugünü bitir.'}
+    : {c: 'green', i: '🟢', t: 'Oynamak için iyi bir an', s: 'Koşullar senden yana. İyi oyunlar!'};
+  const agoTxt = ago < 3600e3 ? Math.max(1, Math.round(ago / 60e3)) + ' dk' : ago < 864e5 ? Math.round(ago / 3600e3) + ' saat' : Math.round(ago / 864e5) + ' gün';
+  el.className = `card play ${lv.c}`;
+  el.innerHTML = `<div class="playtop"><div class="light">${lv.i}</div><div style="min-width:0;flex:1"><div class="muted" style="font-size:12.5px">Şimdi oynamalı mıyım?${F.tc !== 'all' ? ' · ' + TC[F.tc].l : ''}</div><div class="playt">${lv.t}</div><div class="plays">${lv.s}</div></div>
+    <div class="playest"><div class="muted" style="font-size:11.5px">Bir sonraki maç <br>tahmini skor</div><b style="color:${est < s0 - 0.02 ? 'var(--loss)' : est > s0 + 0.02 ? 'var(--brand)' : 'var(--text-primary)'}">%${Math.round(est * 100)}</b><div class="muted" style="font-size:11.5px">normalde %${Math.round(s0 * 100)}</div></div></div>
+    <ul class="playwhy">${why.slice(0, 5).map(([i, t]) => `<li><span>${i}</span><span>${t}</span></li>`).join('')}</ul>
+    <div class="muted" style="font-size:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">Son oyun ${agoTxt} önce · veriler sayfa açıldığında güncellendi <button class="linkbtn" id="playRefresh">🔄 Şimdi yenile</button>${sess.length ? `<button class="linkbtn"${qa({title: 'Bu seansın oyunları', list: sess})}>Bu seansın ${sess.length} oyunu</button>` : ''}${today.length ? `<button class="linkbtn"${qa({title: 'Bugünün oyunları', list: today})}>Bugünün ${today.length} oyunu</button>` : ''}</div>`;
+}
+document.addEventListener('click', e => { if (e.target.id === 'playRefresh') load(ME); });
+
 // =============== WRAPPED / ÖZET KARTI ===============
 function openWrapped() {
   const G = LAST; if (!G.length) return;
@@ -1936,6 +2188,7 @@ function drawWrapped(G, logo) {
   const favW = groupBy(G.filter(g => g.color === 'w'), g => g.fam).filter(g => g.k !== 'Bilinmiyor')[0], favB = groupBy(G.filter(g => g.color === 'b'), g => g.fam).filter(g => g.k !== 'Bilinmiyor')[0];
   const riv = rivalMap(G).sort((a, b) => b.n - a.n)[0];
   const up = G.filter(g => g.res === 'W' && g.rated && g.opR).reduce((a, g) => !a || g.opR - g.myR > a.opR - a.myR ? g : a, null);
+  const top = G.filter(g => g.res === 'W' && g.rated && g.opR).reduce((a, g) => !a || g.opR > a.opR ? g : a, null);
   const hrs = countBy(G, g => new Date(g.t).getHours())[0];
   const tot = G.filter(g => g.clk).reduce((a, g) => a + g.base + g.inc * Math.ceil(g.ply / 2) - g.clk.end, 0);
   const st = streaks(G);
@@ -1947,7 +2200,7 @@ function drawWrapped(G, logo) {
     ['Beyazla favori', favW ? favW.k : '–', favW ? `${favW.r.n} maç · %${scp(favW.r)} skor` : ''],
     ['Siyahla favori', favB ? favB.k : '–', favB ? `${favB.r.n} maç · %${scp(favB.r)} skor` : ''],
     ['En sık rakip', riv ? riv.name : '–', riv ? `${riv.n} maç · ${riv.W}-${riv.D}-${riv.L}` : ''],
-    ['En büyük sürpriz', up && up.opR > up.myR ? '+' + (up.opR - up.myR) : '–', up && up.opR > up.myR ? `${up.opp} (${up.opR}) yenildi` : ''],
+    ['En değerli galibiyet', top ? String(top.opR) : '–', top ? `${titleOf(top.opp) ? titleOf(top.opp) + ' ' : ''}${top.opp} yenildi · ${dstr(top.t)}` : ''],
     ['En uzun seri', st.bw + ' galibiyet', `${st.bu} maç yenilgisiz`],
     ['Saatte geçen süre', tot > 0 ? fmt(Math.round(tot / 3600)) + ' saat' : '–', hrs ? `En aktif saat ${String(hrs.k).padStart(2, '0')}:00` : '']
   ];
