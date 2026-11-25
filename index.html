@@ -1955,7 +1955,7 @@ const DNA_AXES = [
   {k: 'end', l: 'Oyun sonu', adj: 'oyun sonunda güçlü', low: 'uzun oyunlarda zorlanıyorsun', d: '50+ hamlelik oyunlardaki skorun, genel skoruna göre'},
   {k: 'pat', l: 'Sabır', adj: 'sabırlı', low: 'oyunların kısa sürüyor', d: 'Ortalama oyun uzunluğu'},
   {k: 'calm', l: 'Soğukkanlılık', adj: 'soğukkanlı', low: 'kayıplardan sonra etkileniyorsun', d: 'Mağlubiyetten sonraki skorun, galibiyetten sonrakine göre'},
-  {k: 'loyal', l: 'Repertuvar sadakati', adj: 'repertuvarına sadık', low: 'açılışlarını sık değiştiriyorsun', d: 'Her renkte en çok oynadığın 3 açılışın payı'}
+  {k: 'loyal', l: 'Repertuvar sadakati', adj: 'repertuvarına sadık', low: 'açılışlarını sık değiştiriyorsun', d: 'Beyazla ilk hamlelerin ve siyahla 1.e4 / 1.d4\'e cevaplarının ne kadar tutarlı olduğu'}
 ];
 // playful style archetypes on the same 8 axes (agg, risk, speed, sharp, end, pat, calm, loyal)
 const ARCHETYPES = [
@@ -2000,10 +2000,18 @@ function dnaOf(G) {
   const T = tiltStats(G);
   if (T.afterL.r.n >= 20 && T.afterW.r.n >= 20) { out.calm = Math.max(0, Math.min(100, Math.round(50 + (sc(T.afterL.r) - sc(T.afterW.r)) * 600))); raw.calm = `Kayıptan sonra %${scp(T.afterL.r)}, galibiyetten sonra %${scp(T.afterW.r)}`; lists.calm = T.afterL.list; }
   else { out.calm = null; raw.calm = 'Yeterli seans verisi yok'; }
-  // loyalty
-  let loyN = 0; const loyList = [];
-  for (const col of ['w', 'b']) { const CG = G.filter(g => g.color === col); const top = groupBy(CG, g => g.fam).filter(x => x.k !== 'Bilinmiyor').slice(0, 3); for (const x of top) { loyN += x.r.n; loyList.push(...x.list); } }
-  const loyR = loyN / G.length; out.loyal = lin(loyR, 0.35, 0.85); raw.loyal = `Oyunların %${Math.round(loyR * 100)}'i en sevdiğin 3 açılışta`; lists.loyal = loyList;
+  // loyalty: consistency of the moves themselves (opening names are too fragmented)
+  const share = (list, key) => { const m = new Map(); for (const g of list) { const k = key(g); if (k) m.set(k, (m.get(k) || 0) + 1); } let best = null, c = 0; for (const [k, v] of m) if (v > c) { c = v; best = k; } const n = [...m.values()].reduce((a, v) => a + v, 0); return n >= 20 ? {k: best, r: c / n} : null; };
+  const WG = G.filter(g => g.color === 'w'), BG = G.filter(g => g.color === 'b');
+  const p1 = share(WG, g => g.mv[0]), p2 = share(WG, g => g.mv.length >= 3 ? g.mv[0] + ' ' + g.mv[2] : null);
+  const pe = share(BG.filter(g => g.mv[0] === 'e4'), g => g.mv[1]), pd = share(BG.filter(g => g.mv[0] === 'd4'), g => g.mv[1]);
+  const parts = [p1, p2, pe, pd].filter(Boolean);
+  if (parts.length) {
+    const loyR = parts.reduce((a, p) => a + p.r, 0) / parts.length;
+    out.loyal = lin(loyR, 0.45, 0.92);
+    raw.loyal = [p1 && `beyazla %${Math.round(p1.r * 100)} 1.${p1.k}`, pe && `1.e4'e %${Math.round(pe.r * 100)} 1…${pe.k}`, pd && `1.d4'e %${Math.round(pd.r * 100)} 1…${pd.k}`].filter(Boolean).join(', ');
+    lists.loyal = G.filter(g => g.color === 'w' ? (p1 && g.mv[0] === p1.k) : ((g.mv[0] === 'e4' && pe && g.mv[1] === pe.k) || (g.mv[0] === 'd4' && pd && g.mv[1] === pd.k)));
+  } else { out.loyal = null; raw.loyal = 'Yeterli veri yok'; }
   return {v: out, lists, raw};
 }
 function dnaMatch(v) {
