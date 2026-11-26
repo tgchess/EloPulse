@@ -1958,38 +1958,134 @@ const DNA_AXES = [
   {k: 'loyal', l: 'Repertuvar sadakati', adj: 'repertuvarına sadık', low: 'açılışlarını sık değiştiriyorsun', d: 'Beyazla ilk hamlelerin ve siyahla 1.e4 / 1.d4\'e cevaplarının ne kadar tutarlı olduğu'}
 ];
 // famous players: their profiles are COMPUTED from their real Chess.com games with the same method
-const FAMOUS = [
-  {u: 'hikaru', n: 'Hikaru Nakamura', t: 'Blitz kralı'},
-  {u: 'magnuscarlsen', n: 'Magnus Carlsen', t: 'Dünya 1 numarası'},
-  {u: 'firouzja2003', n: 'Alireza Firouzja', t: 'Genç fırtına'},
-  {u: 'fabianocaruana', n: 'Fabiano Caruana', t: 'Hazırlık ustası'},
-  {u: 'anishgiri', n: 'Anish Giri', t: 'Sağlam stratejist'},
-  {u: 'lachesisq', n: 'Ian Nepomniachtchi', t: 'Hızlı sezgici'},
-  {u: 'gmwso', n: 'Wesley So', t: 'Kusursuz teknisyen'},
-  {u: 'polish_fighter3000', n: 'Jan-Krzysztof Duda', t: 'Savaşçı'},
-  {u: 'nihalsarin', n: 'Nihal Sarin', t: 'Bullet dehası'},
-  {u: 'ghandeevam2003', n: 'Arjun Erigaisi', t: 'Yorulmak bilmeyen'},
-  {u: 'gurelediz', n: 'Ediz Gürel', t: 'Türk yıldızı 🇹🇷'},
-  {u: 'gothamchess', n: 'Levy Rozman (GothamChess)', t: 'İçerik üreticisi IM'}
+// FIDE top 50 (Nov 2026) + extras. c = known/likely Chess.com handles, s = folded surname used to search the GM list,
+// v = folded text that must appear in the Chess.com profile name (defaults to s). trust = handle is certain.
+const TOP = [
+  {r: 1, n: 'Magnus Carlsen', f: 'NO', s: 'carlsen', c: ['MagnusCarlsen'], trust: 1},
+  {r: 2, n: 'Hikaru Nakamura', f: 'US', s: 'nakamura', c: ['Hikaru'], trust: 1},
+  {r: 3, n: 'Fabiano Caruana', f: 'US', s: 'caruana', c: ['FabianoCaruana'], trust: 1},
+  {r: 4, n: 'Javokhir Sindarov', f: 'UZ', s: 'sindarov', c: ['Javokhir_Sindarov05', 'JavokhirSindarov']},
+  {r: 5, n: 'Nodirbek Abdusattorov', f: 'UZ', s: 'abdusattorov', c: ['ChessWarrior7197'], trust: 1},
+  {r: 6, n: 'Wesley So', f: 'US', s: 'wesley', v: 'wesleyso', c: ['GMWSO'], trust: 1},
+  {r: 7, n: 'Praggnanandhaa R', f: 'IN', s: 'pragg', v: 'praggnanandhaa', c: ['rpragchess'], trust: 1},
+  {r: 8, n: 'Wei Yi', f: 'CN', s: 'weiyi', c: []},
+  {r: 9, n: 'Vincent Keymer', f: 'DE', s: 'keymer', c: ['VincentKeymer2004']},
+  {r: 10, n: 'Alireza Firouzja', f: 'FR', s: 'firouzja', c: ['Firouzja2003'], trust: 1},
+  {r: 11, n: 'Anish Giri', f: 'NL', s: 'anishgiri', v: 'giri', c: ['AnishGiri'], trust: 1},
+  {r: 12, n: 'Arjun Erigaisi', f: 'IN', s: 'erigaisi', c: ['GHANDEEVAM2003'], trust: 1},
+  {r: 13, n: 'Jan-Krzysztof Duda', f: 'PL', s: 'duda', c: ['Polish_fighter3000'], trust: 1},
+  {r: 14, n: 'Viswanathan Anand', f: 'IN', s: 'vishy', v: 'anand', c: ['VishyAnand', 'vishy64theking']},
+  {r: 15, n: 'Leinier Dominguez', f: 'US', s: 'dominguez', c: ['LyonBeast']},
+  {r: 16, n: 'Le Quang Liem', f: 'VN', s: 'liem', c: ['LeQuangLiem']},
+  {r: 17, n: 'Ding Liren', f: 'CN', s: 'liren', c: []},
+  {r: 18, n: 'Amin Tabatabaei', f: 'IR', s: 'tabatabaei', c: ['Amintabatabaei']},
+  {r: 19, n: 'Nihal Sarin', f: 'IN', s: 'sarin', c: ['nihalsarin'], trust: 1},
+  {r: 20, n: 'Levon Aronian', f: 'US', s: 'aronian', c: ['LevonAronian']},
+  {r: 21, n: 'Yağız Kaan Erdoğmuş', f: 'TR', s: 'erdogmus', c: ['YagizKaanErdogmus', 'YagizKaan']},
+  {r: 22, n: 'Ian Nepomniachtchi', f: 'RU', s: 'nepo', v: 'nepomniachtchi', c: ['lachesisQ'], trust: 1},
+  {r: 23, n: 'Richard Rapport', f: 'HU', s: 'rapport', c: ['RichardRapport']},
+  {r: 24, n: 'Jorden van Foreest', f: 'NL', s: 'foreest', c: ['JordenVanForeest']},
+  {r: 25, n: 'Dmitry Andreikin', f: 'RU', s: 'andreikin', c: ['Andreikin']},
+  {r: 26, n: 'Gukesh D', f: 'IN', s: 'gukesh', c: ['GukeshDommaraju']},
+  {r: 27, n: 'Shakhriyar Mamedyarov', f: 'AZ', s: 'mamedyarov', c: []},
+  {r: 28, n: 'Maxime Vachier-Lagrave', f: 'FR', s: 'vachier', c: ['LyonBeast']},
+  {r: 29, n: 'Yu Yangyi', f: 'CN', s: 'yangyi', c: []},
+  {r: 30, n: 'Parham Maghsoodloo', f: 'IR', s: 'maghsoodloo', c: []},
+  {r: 31, n: 'Nodirbek Yakubboev', f: 'UZ', s: 'yakubboev', c: []},
+  {r: 32, n: 'Hans Niemann', f: 'US', s: 'niemann', c: ['HansOnTwitch'], trust: 1},
+  {r: 33, n: 'Veselin Topalov', f: 'BG', s: 'topalov', c: []},
+  {r: 34, n: 'Wang Hao', f: 'CN', s: 'wanghao', c: []},
+  {r: 35, n: 'Vidit Gujrathi', f: 'IN', s: 'vidit', c: ['viditchess']},
+  {r: 36, n: 'Aydın Süleymanlı', f: 'AZ', s: 'suleymanli', c: []},
+  {r: 37, n: 'Vladimir Fedoseev', f: 'SI', s: 'fedoseev', c: []},
+  {r: 38, n: 'Teimour Radjabov', f: 'AZ', s: 'radjabov', c: []},
+  {r: 39, n: 'Awonder Liang', f: 'US', s: 'awonder', c: ['AwonderLiang']},
+  {r: 40, n: 'Samuel Sevian', f: 'US', s: 'sevian', c: ['SamuelSevian']},
+  {r: 41, n: 'Andrey Esipenko', f: 'RU', s: 'esipenko', c: []},
+  {r: 42, n: 'Pranav V', f: 'IN', s: 'pranav', v: 'pranavv', c: []},
+  {r: 43, n: 'Alexey Sarana', f: 'RS', s: 'sarana', c: []},
+  {r: 44, n: 'Pranesh M', f: 'IN', s: 'pranesh', c: []},
+  {r: 45, n: 'Aravindh Chithambaram', f: 'IN', s: 'aravindh', c: []},
+  {r: 46, n: 'Jeffery Xiong', f: 'US', s: 'xiong', c: ['JefferyX']},
+  {r: 47, n: 'Matthias Bluebaum', f: 'DE', s: 'bluebaum', c: []},
+  {r: 48, n: 'Haik Martirosyan', f: 'AM', s: 'martirosyan', c: []},
+  {r: 49, n: 'Pavel Eljanov', f: 'UA', s: 'eljanov', c: []},
+  {r: 50, n: 'David Howell', f: 'GB', s: 'howell', c: []},
+  {r: 0, n: 'Ediz Gürel', f: 'TR', s: 'gurel', c: ['gurelediz'], trust: 1},
+  {r: 0, n: 'Levy Rozman (GothamChess)', f: 'US', s: 'gotham', c: ['GothamChess'], trust: 1}
 ];
-const FAM_VER = 1; let FAM = null, famState = 'idle', famProg = '';
-async function loadFamous() {
-  if (famState !== 'idle') return; famState = 'loading';
-  try { const r = await fetch('famous.json', {cache: 'no-cache'}); if (r.ok) { const j = await r.json(); if (j && j.v === FAM_VER && j.p) { FAM = j; famState = 'ok'; return famDone(); } } } catch (e) {}
-  const c = await cacheGet('famous'); if (c && c.v === FAM_VER && Date.now() - c.t < 30 * 864e5) { FAM = c; famState = 'ok'; return famDone(); }
-  const out = {v: FAM_VER, t: Date.now(), p: {}};
-  for (let i = 0; i < FAMOUS.length; i++) {
-    const f = FAMOUS[i]; famProg = `${i + 1}/${FAMOUS.length} · ${f.n}`; famProgress();
+const foldTxt = t => String(t || '').toLowerCase().replace(/ı/g, 'i').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+const FAM_VER = 2; let FAM = null, famState = 'idle', famProg = '', famMiss = [];
+async function resolveHandle(p, gms) {
+  const key = foldTxt(p.s), ver = foldTxt(p.v || p.s), known = (p.c || []).map(x => x.toLowerCase());
+  const cands = [...known];
+  // search the GM list by surname first, then by first name (many handles don't contain the surname)
+  const first = foldTxt(p.n.split(/[\s-]/)[0]);
+  for (const k of [key, first]) if (k.length >= 4) for (const u of gms) if (foldTxt(u).includes(k) && !cands.includes(u)) cands.push(u);
+  for (const u of cands.slice(0, 10)) {
     try {
-      const arch = (await getJSON(API + f.u + '/games/archives')).archives || [], games = [];
-      for (let k = arch.length - 1; k >= 0 && k >= arch.length - 4 && games.length < 400; k--) { const j = await getJSON(arch[k]); for (const g of (j.games || [])) { const n = norm(g, f.u); if (n && n.rules === 'chess') games.push(n); } }
-      games.sort((x, y) => x.t - y.t);
-      const vec = {}, cnt = {};
-      for (const tc of ['all', 'bullet', 'blitz', 'rapid']) { const L = tc === 'all' ? games : games.filter(g => g.tc === tc); if (L.length >= 120) { vec[tc] = dnaOf(L).v; cnt[tc] = L.length; } }
-      if (Object.keys(vec).length) out.p[f.u] = {v: vec, n: cnt};
+      const pr = await getJSON(API + u, 2);
+      if (p.trust && known.includes(u)) return u;
+      if (foldTxt(pr.name).includes(ver) && (pr.title === 'GM' || pr.title === 'IM')) return u;
     } catch (e) {}
   }
-  FAM = out; famState = Object.keys(out.p).length ? 'ok' : 'fail';
+  return null;
+}
+async function famProfile(u, maxArch = 6) {
+  const arch = ((await getJSON(API + u + '/games/archives', 2)).archives || []).filter(a => { const m = /\/(\d{4})\/(\d{2})$/.exec(a); return m && Date.now() - new Date(+m[1], +m[2] - 1, 1).getTime() < 400 * 864e5; });
+  const games = [];
+  for (let k = arch.length - 1; k >= 0 && k >= arch.length - maxArch && games.length < 400; k--) { const j = await getJSON(arch[k], 2); for (const g of (j.games || [])) { const n = norm(g, u); if (n && n.rules === 'chess') games.push(n); } }
+  games.sort((x, y) => x.t - y.t);
+  const vec = {}, cnt = {};
+  for (const tc of ['all', 'bullet', 'blitz', 'rapid']) { const L = tc === 'all' ? games : games.filter(g => g.tc === tc); if (L.length >= (tc === 'all' ? 80 : 120)) { vec[tc] = dnaOf(L).v; cnt[tc] = L.length; } }
+  return Object.keys(vec).length ? {v: vec, c: cnt} : null;
+}
+async function famBroadPool(out, gms) {
+  // Chess.com leaderboards (exact handles + real names) and a random sample of active GMs
+  const extra = new Map();
+  try {
+    const lb = await getJSON('https://api.chess.com/pub/leaderboards', 2);
+    for (const k of ['live_blitz', 'live_bullet', 'live_rapid']) for (const e of (lb[k] || [])) { const u = String(e.username || '').toLowerCase(); if (u && !out.p[u] && !extra.has(u)) extra.set(u, {n: e.name || e.username, t: e.title || '', f: String(e.country || '').split('/').pop()}); }
+  } catch (e) {}
+  const pool = gms.filter(u => !out.p[u] && !extra.has(u));
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  for (const u of pool.slice(0, 200)) extra.set(u, {n: null, t: 'GM', f: ''});
+  const list = [...extra]; let done = 0;
+  async function worker() {
+    while (list.length) {
+      const [u, meta] = list.shift();
+      try {
+        const prof = await famProfile(u, 2);
+        if (prof) {
+          if (!meta.n || !meta.f) { try { const pr = await getJSON(API + u, 2); meta.n = meta.n || pr.name || pr.username || u; meta.t = meta.t || pr.title || ''; meta.f = meta.f || String(pr.country || '').split('/').pop(); } catch (e) { meta.n = meta.n || u; } }
+          out.p[u] = {u, r: 0, n: meta.n, t: meta.t, f: meta.f, v: prof.v, c: prof.c};
+        }
+      } catch (e) {}
+      done++; famProg = `Geniş havuz: ${done}/${extra.size} oyuncu · ${Object.keys(out.p).length} profil hazır`; famProgress();
+      if (done % 15 === 0) famDone();
+    }
+  }
+  await Promise.all([worker(), worker(), worker()]);
+}
+async function loadFamous() {
+  if (famState !== 'idle') return; famState = 'loading';
+  const devBuild = /dev=1/.test(location.search);
+  if (!devBuild) try { const r = await fetch('famous.json', {cache: 'no-cache'}); if (r.ok) { const j = await r.json(); if (j && j.v === FAM_VER && j.p) { FAM = j; famState = 'ok'; return famDone(); } } } catch (e) {}
+  const c = devBuild ? null : await cacheGet('famous'); if (c && c.v === FAM_VER && Date.now() - c.t < 30 * 864e5) { FAM = c; famState = 'ok'; return famDone(); }
+  let gms = [...TITLES].filter(([, t]) => t === 'GM').map(([u]) => u);
+  if (!gms.length) { try { gms = ((await getJSON('https://api.chess.com/pub/titled/GM', 2)).players || []).map(x => String(x).toLowerCase()); } catch (e) {} }
+  const out = {v: FAM_VER, t: Date.now(), p: {}}; FAM = out; famMiss = []; window.__fam = out.p;
+  for (let i = 0; i < TOP.length; i++) {
+    const p = TOP[i]; famProg = `${i + 1}/${TOP.length} · ${p.n}`; famProgress();
+    try {
+      const u = await resolveHandle(p, gms); if (!u) { famMiss.push(p.n); continue; }
+      const prof = await famProfile(u);
+      if (prof) { out.p[u] = {u, r: p.r, n: p.n, t: 'GM', f: p.f, v: prof.v, c: prof.c}; if (Object.keys(out.p).length % 3 === 0) famDone(); }
+      else famMiss.push(p.n + ' (az oyun)');
+    } catch (e) { famMiss.push(p.n); }
+  }
+  if (/dev=1/.test(location.search)) await famBroadPool(out, gms);
+  famState = Object.keys(out.p).length ? 'ok' : 'fail';
   if (famState === 'ok') cachePut('famous', out);
   famDone();
 }
@@ -2047,11 +2143,11 @@ function dnaOf(G) {
 function dnaMatch(v) {
   if (!FAM || !FAM.p) return [];
   const tcKey = F.tc !== 'all' ? F.tc : 'all';
-  return FAMOUS.filter(f => FAM.p[f.u]).map(f => {
-    const P = FAM.p[f.u], key = P.v[tcKey] ? tcKey : 'all', fv = P.v[key]; if (!fv) return null;
+  return Object.values(FAM.p).map(P => {
+    const key = P.v[tcKey] ? tcKey : 'all', fv = P.v[key]; if (!fv) return null;
     let s = 0, n = 0; for (const a of DNA_AXES) if (v[a.k] != null && fv[a.k] != null) { s += (v[a.k] - fv[a.k]) ** 2; n++; }
     if (n < 5) return null;
-    return {...f, fv, key, games: P.n[key], sim: Math.max(0, Math.round(100 - 2.5 * Math.sqrt(s / n)))};
+    return {u: P.u, n: P.n, r: P.r, f: P.f, t: P.t, fv, key, games: P.c[key], sim: Math.max(0, Math.round(100 - 2.5 * Math.sqrt(s / n)))};
   }).filter(Boolean).sort((a, b) => b.sim - a.sim);
 }
 function radarSVG(series, opts = {}) {
@@ -2081,25 +2177,30 @@ function dnaSummary(v) {
   if (lo.length) t += ` Öte yandan ${lo.map(a => a.low).join(' ve ')}.`;
   return t;
 }
+function famLabel(a, plain) { return `${a.r ? 'FIDE #' + a.r : (a.t || 'Ünvanlı') + ' oyuncu'} ${a.f ? (plain ? '(' + a.f + ')' : flag(a.f)) : ''}`; }
 function renderDNA(G) {
   loadFamous();
   const D = dnaOf(G), M = dnaMatch(D.v), top = M[0];
   const series = [{v: D.v, color: '#2cf899', fill: 'rgba(44,248,153,.18)', dots: true}];
   if (top) series.push({v: top.fv, color: 'rgba(238,241,244,.55)', dash: true});
-  const isFamous = FAMOUS.some(f => f.u === ME);
+  const isFamous = !!(FAM && FAM.p && FAM.p[ME]);
   const tcTxt = F.tc !== 'all' ? TC[F.tc].l + ' ' : '';
+  const nFam = FAM && FAM.p ? Object.keys(FAM.p).length : 0;
+  const loadingLine = famState === 'loading' ? `<div class="muted" style="font-size:12.5px;margin-top:8px">⏳ Elit oyuncuların gerçek Chess.com oyunları analiz ediliyor: <b id="famProg">${esc(famProg)}</b> · ${nFam} profil hazır. İlk seferde birkaç dakika sürer, sonra 30 gün hafızada kalır.</div>` : '';
   let match;
-  if (famState === 'loading') match = `<div class="dnamatch"><div class="muted" style="font-size:12.5px">Ünlü oyuncuların profilleri hesaplanıyor…</div><div style="font-weight:600;margin:6px 0" id="famProg">${esc(famProg)}</div><div class="muted" style="font-size:12.5px">${FAMOUS.length} ünlü oyuncunun gerçek Chess.com oyunları senin profilinle aynı yöntemle analiz ediliyor. Bu ilk seferde 1–2 dakika sürer, sonra 30 gün boyunca hafızada kalır.</div></div>`;
+  if (!top && famState === 'loading') match = `<div class="dnamatch"><div style="font-weight:600">Ünlü oyuncu profilleri hazırlanıyor…</div>${loadingLine}</div>`;
   else if (!top) match = `<div class="dnamatch"><div class="muted" style="font-size:13px">Ünlü oyuncu profilleri şu an yüklenemedi (Chess.com yanıt vermedi). Sayfayı daha sonra yenileyip tekrar dene.</div></div>`;
-  else match = `<div class="dnamatch"><div class="muted" style="font-size:12.5px">Tarzın en çok benzeyen</div><div class="dnaname">${esc(top.n)}${top.u === ME ? ' <span class="ltag" style="vertical-align:6px">kendisi</span>' : ''}</div><div style="color:var(--brand);font-weight:600">${esc(top.t)} · %${top.sim} benzerlik</div><div class="muted" style="font-size:12.5px;margin-top:2px">${top.games ? `Son ${fmt(top.games)} ${top.key !== 'all' ? TC[top.key].l + ' ' : ''}oyunundan ölçüldü · ` : ''}<a href="https://www.chess.com/member/${encodeURIComponent(top.u)}" target="_blank" rel="noopener">profil ↗</a></div></div>`;
+  else match = `<div class="dnamatch"><div class="muted" style="font-size:12.5px">Tarzın en çok benzeyen${nFam ? ` (${nFam} elit oyuncu arasından)` : ''}</div><div class="dnaname">${esc(top.n)}${top.u === ME ? ' <span class="ltag" style="vertical-align:6px">kendisi</span>' : ''}</div><div style="color:var(--brand);font-weight:600">${famLabel(top)} · %${top.sim} benzerlik</div><div class="muted" style="font-size:12.5px;margin-top:2px">${top.games ? `Son ${fmt(top.games)} ${top.key !== 'all' ? TC[top.key].l + ' ' : ''}oyunundan ölçüldü · ` : ''}<a href="https://www.chess.com/member/${encodeURIComponent(top.u)}" target="_blank" rel="noopener">${esc(top.u)} ↗</a></div>${loadingLine}</div>`;
+  const dev = /dev=1/.test(location.search);
   $('#dnaCard').innerHTML = head('🧬 Satranç DNA\'n', `${fmt(G.length)} oyundan çıkarılan oyun tarzı · ${periodLabel()}${F.tc !== 'all' ? ' · ' + TC[F.tc].l : ''} · eksen adlarına tıklayınca ilgili oyunlar açılır`) +
     `<div class="dna"><div class="dnachart">${radarSVG(series, {lists: D.lists, raw: D.raw, fs: innerWidth < 600 ? 19 : 11.5})}
       <div class="legend" style="justify-content:center"><span><i class="dot" style="background:#2cf899"></i>${esc(PROFILE && PROFILE.username || ME)}</span>${top ? `<span><i style="width:16px;border-top:2px dashed rgba(238,241,244,.6);display:inline-block"></i>${esc(top.n)}</span>` : ''}</div></div>
       <div style="min-width:0">
         ${match}
         <p style="font-size:14.5px;line-height:1.55;margin:14px 0">${dnaSummary(D.v)}</p>
-        ${M.length > 1 ? `<div class="lbl">Diğer benzerlikler</div>${M.slice(1, 5).map(a => `<div class="hbar" data-tip="${esc(a.t)} · son ${fmt(a.games || 0)} ${a.key !== 'all' ? TC[a.key].l + ' ' : ''}oyunundan"><span>${esc(a.n)}${a.u === ME ? ' <span class="muted">(kendisi)</span>' : ''}</span><div class="track"><div class="fill" style="width:${a.sim}%;background:rgba(44,248,153,.55)"></div></div><span class="n muted" style="text-align:right">%${a.sim}</span></div>`).join('')}` : ''}
-        <div class="muted" style="font-size:12px;margin-top:10px">Ünlü oyuncuların profilleri, kendi Chess.com hesaplarındaki son ${tcTxt}oyunlarından seninkiyle aynı yöntemle hesaplanır.${isFamous ? ' Analiz ettiğin oyuncu listede de var: kendi profiline yüksek benzerlik çıkması ölçümün tutarlı olduğunu gösterir (farkı, burada tüm oyunlarının, orada son oyunlarının kullanılmasından gelir).' : ''} Benzerlik eksenlerdeki farklara göre hesaplanır: ortalama 10 puan fark ≈ %75, 20 puan ≈ %50, 30 puan ≈ %25. Eğlence amaçlıdır.${/dev=1/.test(location.search) && FAM ? ' <button class="linkbtn" id="famExport">famous.json indir</button>' : ''}</div>
+        ${M.length > 1 ? `<div class="lbl">Diğer benzerlikler</div>${M.slice(1, 6).map(a => `<div class="hbar" data-tip="${esc(famLabel(a, 1))} · son ${fmt(a.games || 0)} ${a.key !== 'all' ? TC[a.key].l + ' ' : ''}oyunundan"><span>${esc(a.n)}${a.u === ME ? ' <span class="muted">(kendisi)</span>' : ''}</span><div class="track"><div class="fill" style="width:${a.sim}%;background:rgba(44,248,153,.55)"></div></div><span class="n muted" style="text-align:right">%${a.sim}</span></div>`).join('')}` : ''}
+        <div class="muted" style="font-size:12px;margin-top:10px">Karşılaştırma havuzu: ${nFam} oyuncu (FIDE ilk 50, Chess.com liderlik tabloları ve aktif GM'lerden). Profilleri kendi son ${tcTxt}oyunlarından seninkiyle aynı yöntemle hesaplanır.${isFamous ? ' Analiz ettiğin oyuncu havuzda da var: kendi profiline yüksek benzerlik çıkması ölçümün tutarlı olduğunu gösterir.' : ''} Benzerlik: ortalama 10 puan fark ≈ %75, 20 puan ≈ %50, 30 puan ≈ %25. Eğlence amaçlıdır.</div>
+        ${dev && famState !== 'loading' && FAM ? `<div class="kpi in" style="margin-top:10px;font-size:12.5px"><b>Geliştirici:</b> ${nFam} profil bulundu.${famMiss.length ? ` Bulunamayan: ${esc(famMiss.join(', '))}.` : ''} <button class="linkbtn" id="famExport">famous.json indir</button></div>` : ''}
       </div></div>`;
   const fe = $('#famExport'); if (fe) fe.onclick = exportFamous;
 }
