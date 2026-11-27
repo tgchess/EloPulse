@@ -2015,7 +2015,7 @@ const TOP = [
   {r: 0, n: 'Levy Rozman (GothamChess)', f: 'US', s: 'gotham', c: ['GothamChess'], trust: 1}
 ];
 const foldTxt = t => String(t || '').toLowerCase().replace(/ı/g, 'i').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
-const FAM_VER = 2; let FAM = null, famState = 'idle', famProg = '', famMiss = [];
+const FAM_VER = 4; let FAM = null, famState = 'idle', famProg = '', famMiss = [];
 async function resolveHandle(p, gms) {
   const key = foldTxt(p.s), ver = foldTxt(p.v || p.s), known = (p.c || []).map(x => x.toLowerCase());
   const cands = [...known];
@@ -2166,7 +2166,7 @@ function radarSVG(series, opts = {}) {
     const main = series[0], val = main.v[a.k];
     const attr = opts.lists && opts.lists[a.k] && opts.lists[a.k].length ? qa({title: `🧬 ${a.l}`, list: opts.lists[a.k], sub: a.d}) : '';
     const fs = opts.fs || 11.5;
-    s += `<g class="rlab"${attr} data-tip="<b>${a.l}</b><br>${esc(a.d)}${opts.raw ? '<br>' + esc(opts.raw[a.k] || '') : ''}${attr ? '<br>Tıkla: ilgili oyunlar' : ''}"><text x="${x}" y="${y}" text-anchor="${anchor}" font-size="${fs}" fill="var(--text-secondary)">${a.l}</text><text x="${x}" y="${y + fs + 3}" text-anchor="${anchor}" font-size="${fs + 1}" font-weight="700" fill="${main.color}">${val == null ? '–' : val}${series[1] && series[1].v[a.k] != null && val != null ? `<tspan fill="var(--text-muted)" font-weight="500"> / ${series[1].v[a.k]}</tspan>` : ''}</text></g>`;
+    s += `<g class="rlab"${attr} data-tip="<b>${a.l}</b><br>${esc(a.d)}${opts.raw ? '<br>' + esc(opts.raw[a.k] || '') : ''}${attr ? '<br>Tıkla: ilgili oyunlar' : ''}"><text x="${x}" y="${y}" text-anchor="${anchor}" font-size="${fs}" fill="var(--text-secondary)">${a.l}</text><text x="${x}" y="${y + fs + 3}" text-anchor="${anchor}" font-size="${fs + 1}" font-weight="700" fill="${main.color}">${val == null ? '–' : val}${series[1] && series[1].v[a.k] != null && val != null ? `<tspan fill="var(--text-muted)" font-weight="500" font-size="${fs - 1}">  vs  </tspan><tspan fill="${opts.cmpColor || 'rgba(238,241,244,.75)'}" font-weight="600">${series[1].v[a.k]}</tspan>` : ''}</text></g>`;
   });
   return s + '</svg>';
 }
@@ -2194,12 +2194,12 @@ function renderDNA(G) {
   const dev = /dev=1/.test(location.search);
   $('#dnaCard').innerHTML = head('🧬 Satranç DNA\'n', `${fmt(G.length)} oyundan çıkarılan oyun tarzı · ${periodLabel()}${F.tc !== 'all' ? ' · ' + TC[F.tc].l : ''} · eksen adlarına tıklayınca ilgili oyunlar açılır`) +
     `<div class="dna"><div class="dnachart">${radarSVG(series, {lists: D.lists, raw: D.raw, fs: innerWidth < 600 ? 19 : 11.5})}
-      <div class="legend" style="justify-content:center"><span><i class="dot" style="background:#2cf899"></i>${esc(PROFILE && PROFILE.username || ME)}</span>${top ? `<span><i style="width:16px;border-top:2px dashed rgba(238,241,244,.6);display:inline-block"></i>${esc(top.n)}</span>` : ''}</div></div>
+      <div class="legend" style="justify-content:center"><span><i class="dot" style="background:#2cf899"></i>${esc(PROFILE && PROFILE.username || ME)}</span>${top ? `<span><i style="width:16px;border-top:2px dashed rgba(238,241,244,.6);display:inline-block"></i>${esc(top.n)}</span>` : ''}</div>${top ? `<div class="muted" style="font-size:12px;text-align:center;margin-top:4px">Eksenlerdeki sayılar: <b style="color:#2cf899">senin puanın</b> vs <b style="color:rgba(238,241,244,.85)">${esc(top.n)}</b> (ikisi de 0–100)</div>` : ''}</div>
       <div style="min-width:0">
         ${match}
         <p style="font-size:14.5px;line-height:1.55;margin:14px 0">${dnaSummary(D.v)}</p>
         ${M.length > 1 ? `<div class="lbl">Diğer benzerlikler</div>${M.slice(1, 6).map(a => `<div class="hbar" data-tip="${esc(famLabel(a, 1))} · son ${fmt(a.games || 0)} ${a.key !== 'all' ? TC[a.key].l + ' ' : ''}oyunundan"><span>${esc(a.n)}${a.u === ME ? ' <span class="muted">(kendisi)</span>' : ''}</span><div class="track"><div class="fill" style="width:${a.sim}%;background:rgba(44,248,153,.55)"></div></div><span class="n muted" style="text-align:right">%${a.sim}</span></div>`).join('')}` : ''}
-        <div class="muted" style="font-size:12px;margin-top:10px">Karşılaştırma havuzu: ${nFam} oyuncu (FIDE ilk 50, Chess.com liderlik tabloları ve aktif GM'lerden). Profilleri kendi son ${tcTxt}oyunlarından seninkiyle aynı yöntemle hesaplanır.${isFamous ? ' Analiz ettiğin oyuncu havuzda da var: kendi profiline yüksek benzerlik çıkması ölçümün tutarlı olduğunu gösterir.' : ''} Benzerlik: ortalama 10 puan fark ≈ %75, 20 puan ≈ %50, 30 puan ≈ %25. Eğlence amaçlıdır.</div>
+        <div class="muted" style="font-size:12px;margin-top:10px">Karşılaştırma havuzu: ${nFam} oyuncu (FIDE ilk 50, Chess.com liderlik tabloları ve aktif GM'lerden). Profilleri kendi son ${tcTxt}oyunlarından seninkiyle aynı yöntemle hesaplanır.${isFamous ? ' Analiz ettiğin oyuncu havuzda da var: kendi profiline yüksek benzerlik çıkması ölçümün tutarlı olduğunu gösterir.' : ''} Her eksen 0–100 arası bir puandır. Benzerlik: eksen başına ortalama 10 puan fark ≈ %75, 20 puan ≈ %50, 30 puan ≈ %25. Eğlence amaçlıdır.</div>
         ${dev && famState !== 'loading' && FAM ? `<div class="kpi in" style="margin-top:10px;font-size:12.5px"><b>Geliştirici:</b> ${nFam} profil bulundu.${famMiss.length ? ` Bulunamayan: ${esc(famMiss.join(', '))}.` : ''} <button class="linkbtn" id="famExport">famous.json indir</button></div>` : ''}
       </div></div>`;
   const fe = $('#famExport'); if (fe) fe.onclick = exportFamous;
